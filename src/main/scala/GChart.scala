@@ -8,7 +8,6 @@ import javafx.scene.control.TextArea
 import javafx.scene.text.Font
 import javafx.scene.control.Label
 import java.io.PrintWriter
-import java.awt.Toolkit
 import javafx.scene.text.Text
 
 object GChart {

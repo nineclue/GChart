@@ -1,5 +1,7 @@
 scalaVersion := "2.13.3"
 
+enablePlugins(JlinkPlugin)
+
 fork := true
 
 val folderName =
