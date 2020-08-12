@@ -1,0 +1,9 @@
+.bloop
+.metals
+project/project
+project/target
+metals.sbt
+*properties
+target
+*csv
+*db
