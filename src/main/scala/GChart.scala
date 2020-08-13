@@ -14,8 +14,8 @@ object GChart {
 }
 
 class GChart_ extends Application {
-    val stageWidth = 800
-    val stageHeight = 600
+    val stageWidth = 1000
+    val stageHeight = 1000
     val chart = new Chart(stageWidth, stageHeight - 100, None)
     val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
     val fsmall = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 12)
@@ -31,7 +31,8 @@ class GChart_ extends Application {
         ps.setTitle("성장 관리")
         
         ps.show
-        chart.drawBase(HeightChart, true, None)
+        val maps = chart.drawBase(HeightChart, true)
+        chart.drawRef(HeightChart, true, Percentile, maps)
         // convertCSV()
     }
 
@@ -89,7 +90,8 @@ class GChart_ extends Application {
             val ws = l.split(",").toList
             val percent = ws.drop(6).take(13).map(_.trim).mkString(", ")
             val sd = ws.takeRight(7).map(_.trim).mkString(", ")
-            (s"Seq(Seq($percent), Seq($sd))", s"// ${ws(0)} ${ws(2)}")
+            // (s"Seq(Seq($percent), Seq($sd))", s"// ${ws(0)} ${ws(2)}")
+            (s"Seq($percent)", s"Seq($sd)", s"// ${ws(0)} ${ws(2)}")
         }
 
         val folder = "/home/nineclue/lab/gchart/"
@@ -97,8 +99,8 @@ class GChart_ extends Application {
         // val categories = Seq("height")
         val sets = categories.map(s => (s ++ "2017.csv", s.capitalize))
 
-        def helper2(ls : Seq[(String, String)]) = {
-            ls.init.map(t => s"${t._1}, ${t._2}") ++ Seq(ls.last).map(t => s"${t._1} ${t._2}")
+        def helper2(ls : Seq[(String, String, String)], f: Tuple3[String, String, String] => String) = {
+            ls.init.map(t => s"${f(t)}, ${t._3}") :+ s"${f(ls.last)} ${ls.last._3}"
         }
         sets.foreach({ case (fname, cname) => 
             val result = new PrintWriter(s"$cname.scala")
@@ -106,10 +108,13 @@ class GChart_ extends Application {
             val ls = f.getLines.toList.map(helper)
             val male = ls.drop(2).take(228)
             val female = ls.drop(230).take(228)
-            val header = s"object $cname {\nval measures : Seq[Seq[Seq[Seq[Double]]]] = Seq( Seq(   // MALE"
-            val intrim = "), Seq(   // FEMALE"
+            val header1 = s"object ${cname}Percentile {\nval values: Seq[Seq[Seq[Double]]] = Seq( Seq(   // MALE"
+            val header2 = s"object ${cname}SD {\nval values: Seq[Seq[Seq[Double]]] = Seq( Seq(   // MALE"
+            val inter1 = "), Seq(   // FEMALE"
             val footer = "))}"
-            val total = (((header +: helper2(male)) :+ intrim) ++ helper2(female)) :+ footer
+            val total = 
+                Seq(header1) ++ helper2(male, _._1) ++ Seq(inter1) ++ helper2(female, _._1) ++ Seq(footer) ++  
+                    Seq(header2) ++ helper2(male, _._2) ++ Seq(inter1) ++ helper2(female, _._2) ++ Seq(footer)
             total.foreach(result.println)
             result.close
         })

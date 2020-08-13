@@ -3,16 +3,24 @@ import javafx.scene.text.Font
 import javafx.scene.text.Text
 import javafx.scene.paint.Color
 
-trait ChartType
+sealed trait ChartType
 case object HeightChart extends ChartType
 case object WeightChart extends ChartType
 case object BMIChart extends ChartType
 
-trait RefType
+sealed trait RefType
 case object Percentile extends RefType
 case object SD extends RefType
 
+object Chart {
+    type MapF = Double => Double
+    type ChartMap = Tuple2[MapF, MapF]
+    // type ChartInfo = Option[ChartMap] => Option[ChartMap]
+}
+
 case class Chart(width: Double, height: Double, font: Option[Font]) extends Canvas(width, height) {
+    import Chart._
+
     private val xinset = width / 15
     private val yinset = height / 15
     private val padding = width / 100
@@ -39,11 +47,11 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         else fontSize
     }
 
-    def drawBase(ctype: ChartType, male: Boolean, drawRef: Option[RefType]) = {
+    def drawBase(ctype: ChartType, male: Boolean): ChartMap = {
         val (xstart, xend) = (xinset, width - xinset)
         val (ystart, yend) = (yinset, height - yinset)
 
-        val alpha = 0.5
+        val alpha = 0.3
         val gc = getGraphicsContext2D()
         font.foreach(gc.setFont)
         
@@ -93,5 +101,35 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
             }
             gc.strokeLine(xAxisStart, my, xend, my)
         })
+        (monthMap, valueMap)
+    }
+
+    def drawRef(ctype: ChartType, male: Boolean, rtype: RefType, maps: ChartMap): ChartMap = {
+        val gc = getGraphicsContext2D()
+        val colors = Seq(Color.BLUE, Color.RED)
+        val sexIndex = if (male) 0 else 1
+        gc.setStroke(colors(sexIndex))
+        gc.setGlobalAlpha(0.5)
+        val (xmap, ymap) = maps
+
+        val refs: Measures = (ctype, rtype) match {
+            case (HeightChart, Percentile) => HeightPercentile
+            case (HeightChart, SD) => HeightSD
+            case (WeightChart, Percentile) => WeightPercentile
+            case (WeightChart, SD) => WeightSD
+            case (BMIChart, Percentile) => BmiPercentile
+            case (BMIChart, SD) => BmiSD
+        }
+        val monthRange = Range(yearStart, yearEnd + 1).flatMap(y => Range(0, 12).map(y * 12 + _)) // :+ (yearEnd * 12 + 12)
+        val values = refs.values(sexIndex)
+        val refnums = values(monthRange.head).size
+        monthRange.sliding(2, 1).foreach({ ms =>
+            val (x1, x2) = (xmap(ms(0)), xmap(ms(1)))
+            Range(0, refnums).foreach({ ri =>
+                gc.strokeLine(x1, ymap(values(ms(0))(ri)), 
+                              x2, ymap(values(ms(1))(ri)))
+            })
+        })
+        maps
     }
 }
