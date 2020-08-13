@@ -8,9 +8,27 @@ case object HeightChart extends ChartType
 case object WeightChart extends ChartType
 case object BMIChart extends ChartType
 
-sealed trait RefType
-case object Percentile extends RefType
-case object SD extends RefType
+case class Legend(repr: String, include: Boolean, emph: Boolean)
+
+sealed trait RefType {
+    val legends: Seq[Legend]
+}
+case object Percentile extends RefType {
+    val legends = Seq(Legend("1st", false, false), 
+        Legend("3rd", true, true), Legend("5th", true, false), 
+        Legend("10th", true, false), Legend("15th", false, false),
+        Legend("25th", true, false), Legend("50th", true, true),
+        Legend("75th", true, false), Legend("85th", false, false),
+        Legend("90th", true, false), Legend("95th", true, false),
+        Legend("97th", true, true), Legend("99th", false, false))
+}
+case object SD extends RefType {
+    val legends = 
+        Seq(Legend("-3SD", true, true), Legend("-2SD", true, false),
+        Legend("-1SD", true, false), Legend("0", true, true),
+        Legend("+1SD", true, false), Legend("+2SD", true, false),
+        Legend("+3SD", true, true))
+}
 
 object Chart {
     type MapF = Double => Double
@@ -29,6 +47,8 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
                 (WeightChart, true) -> (10, 90), (WeightChart, false) -> (10, 80),
                 (BMIChart, true) -> (13, 28), (BMIChart, false) -> (13, 27))
     private val (yearStart, yearEnd) = (3, 18)
+    private val gc = getGraphicsContext2D()
+    private val maxLengendWidth = Percentile.legends.map(l => textSize(l.repr, gc.getFont)._1).max
 
     private def mapMaker(sfrom: Double, sto: Double, dfrom: Double, dto: Double)(v: Double): Double = 
         (v - sfrom) * (dto - dfrom) / (sto - sfrom) + dfrom
@@ -48,12 +68,11 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
     }
 
     def drawBase(ctype: ChartType, male: Boolean): ChartMap = {
-        val (xstart, xend) = (xinset, width - xinset)
-        val (ystart, yend) = (yinset, height - yinset)
-
         val alpha = 0.3
-        val gc = getGraphicsContext2D()
+        // val gc = getGraphicsContext2D()
         font.foreach(gc.setFont)
+        val (xstart, xend) = (xinset, width - xinset - maxLengendWidth - padding)
+        val (ystart, yend) = (yinset, height - yinset)
         
         val valueRange = measureRange((ctype, male))
         val ylabelSize = textSize(valueRange._2.toString, gc.getFont)
@@ -72,7 +91,7 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
                 gc.setGlobalAlpha(1.0)
                 val mstr = (m / 12).toString
                 val ms = textSize(mstr, gc.getFont())
-                gc.strokeText(mstr, mx - ms._1 / 2, yend + (ms._2 + padding))
+                gc.fillText(mstr, mx - ms._1 / 2, yend + (ms._2 + padding))
                 gc.setGlobalAlpha(alpha)
             } else {
                 gc.setLineWidth(1)
@@ -86,7 +105,7 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         val valueInterval = Seq(2, 5).find(i => yUnitGap / i >= 3).getOrElse(10)
         // println(s"yUnitGap : $yUnitGap, valueInterval : $valueInterval")
         val measures = Range(valueRange._1, valueRange._2, 10).flatMap(u => Range(0, 10 / valueInterval).map(u + _ * valueInterval)) :+ valueRange._2
-        println(measures)
+        // println(measures)
         measures.foreach({ m =>
             val my = valueMap(m)
             if (m % 10 == 0) {
@@ -94,7 +113,7 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
                 gc.setGlobalAlpha(1.0)
                 val mstr = m.toString
                 val ms = textSize(mstr, gc.getFont())
-                gc.strokeText(mstr, xAxisStart - (ms._1 + padding), my + ms._2 / 2)
+                gc.fillText(mstr, xAxisStart - (ms._1 + padding), my + ms._2 / 2)
                 gc.setGlobalAlpha(alpha)
             } else {
                 gc.setLineWidth(1)
@@ -105,7 +124,7 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
     }
 
     def drawRef(ctype: ChartType, male: Boolean, rtype: RefType, maps: ChartMap): ChartMap = {
-        val gc = getGraphicsContext2D()
+        // val gc = getGraphicsContext2D()
         val colors = Seq(Color.BLUE, Color.RED)
         val sexIndex = if (male) 0 else 1
         gc.setStroke(colors(sexIndex))
@@ -125,9 +144,20 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         val refnums = values(monthRange.head).size
         monthRange.sliding(2, 1).foreach({ ms =>
             val (x1, x2) = (xmap(ms(0)), xmap(ms(1)))
-            Range(0, refnums).foreach({ ri =>
-                gc.strokeLine(x1, ymap(values(ms(0))(ri)), 
-                              x2, ymap(values(ms(1))(ri)))
+            Range(0, refnums).zip(rtype.legends) foreach({ case ((ri, l)) =>
+                if (l.include) {
+                    if (l.emph) gc.setLineWidth(2.0)
+                    else gc.setLineWidth(1)
+                    gc.strokeLine(x1, ymap(values(ms(0))(ri)), 
+                                x2, ymap(values(ms(1))(ri)))
+                }
+            })
+            rtype.legends.zipWithIndex.foreach({ case ((l, i)) =>
+                if (l.include) {
+                    if (l.emph) gc.setLineWidth(2.0)
+                    else gc.setLineWidth(1.0)
+                    gc.fillText(l.repr, width - xinset - maxLengendWidth, ymap(values.last.apply(i)))
+                }
             })
         })
         maps

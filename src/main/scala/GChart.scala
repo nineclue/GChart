@@ -16,9 +16,9 @@ object GChart {
 class GChart_ extends Application {
     val stageWidth = 1000
     val stageHeight = 1000
-    val chart = new Chart(stageWidth, stageHeight - 100, None)
     val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
-    val fsmall = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 12)
+    val fsmall = Font.loadFont(getClass.getResourceAsStream("NanumMyeongjo.ttf"), 12)
+    val chart = new Chart(stageWidth, stageHeight - 100, Some(fsmall))
 
     override def start(ps: Stage) = {
         // val text = new TextArea()
