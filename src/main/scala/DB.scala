@@ -16,18 +16,19 @@ object DB {
     val createPerson = sql""" +
     CREATE TABLE IF NOT EXISTS person (
         charno TEXT PRIMARY KEY,
+        sex TEXT NOT NULL,
         birthday TEXT NOT NULL
     )
-    """
+    """.update.run
     val createMeasures = sql"""
     CREATE TABLE IF NOT EXISTS measures (
         charno TEXT NOT NULL,
         measuredate TEXT NOT NULL,
-        height REAL NOT NULL,
-        weight REAL NOT NULL, 
+        height REAL,
+        weight REAL, 
         FOREIGN KEY(measurecharno) REFERENCES person(charno)
     )
-    """
+    """.update.run
     */
 
     def test() = {

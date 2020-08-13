@@ -4,11 +4,9 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.canvas.Canvas
 import javafx.scene.Scene
 import javafx.scene.paint.Color
-import javafx.scene.control.TextArea
-import javafx.scene.text.Font
 import javafx.scene.control.Label
 import java.io.PrintWriter
-import javafx.scene.text.Text
+import javafx.scene.text.Font
 
 object GChart {
     def main(as: Array[String]) =
@@ -18,27 +16,26 @@ object GChart {
 class GChart_ extends Application {
     val stageWidth = 800
     val stageHeight = 600
-    val can = new Canvas(stageWidth - 200, stageHeight)
+    val chart = new Chart(stageWidth, stageHeight - 100, None)
+    val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
+    val fsmall = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 12)
 
     override def start(ps: Stage) = {
-        val f = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
         // val text = new TextArea()
-        val root = new BorderPane(can)
+        val root = new BorderPane(chart)
         val l = new Label(s"배달의 민족 : Pi는 ${DB.test}입니다.")
-        l.setFont(f)
+        l.setFont(flarge)
         root.setBottom(l)
         val scene = new Scene(root, stageWidth, stageHeight, Color.WHITE)
         ps.setScene(scene)
         ps.setTitle("성장 관리")
         
         ps.show
-        // drawBase()
-        convertCSV()
+        chart.drawBase(HeightChart, true, None)
+        // convertCSV()
     }
 
-    private def mapMaker(smin: Double, smax: Double, tmin: Double, tmax: Double)(v: Double): Double = 
-        (v - smin) * (tmax - tmin) / (smax - smin) + tmin
-
+    /*
     def drawBase() = {
         val inset = 30
         val (xstart, xend) = (inset, can.getWidth - inset)
@@ -86,21 +83,7 @@ class GChart_ extends Application {
             gc.strokeLine(xstart, my, xend, my)
         })
     }
-
-    private def textSize(s: String, f: Font) = {
-        val t = new Text(s)
-        t.setFont(f)
-        val bounds = t.getBoundsInLocal
-        (bounds.getWidth(), bounds.getHeight())
-    }
-
-    private def fontSizeThatCanFit(s: String, f: Font, maxWidth: Int) = {
-        val fontSize = f.getSize()
-        val w = textSize(s, f)._1
-        if (w > maxWidth) fontSize * maxWidth / w
-        else fontSize
-    }
-
+    */
     def convertCSV() = {
         def helper(l: String) = {
             val ws = l.split(",").toList
