@@ -7,3 +7,4 @@ metals.sbt
 target
 *csv
 *db
+*msi
