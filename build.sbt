@@ -1,7 +1,7 @@
 scalaVersion := "2.13.3"
 
 version in ThisBuild := "0.0.1"
-enablePlugins(WindowsPlugin, JlinkPlugin)
+// enablePlugins(WindowsPlugin)
 
 maintainer := "Suhku Huh <nineclue@gmail.com>"
 packageSummary := "GChart Test"
@@ -11,7 +11,7 @@ wixProductId := "941699a7-d7b8-406b-8d0e-ac0c958522f5"
 wixProductUpgradeId := "71fe9ea5-9eca-41f0-af6c-736c811b9233"
 
 // enablePlugins(JavaAppPackaging)
-//enablePlugins(JlinkPlugin)
+// enablePlugins(JlinkPlugin)
 
 fork := true
 

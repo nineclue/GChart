@@ -32,8 +32,8 @@ class GChart_ extends Application {
         ps.setTitle("성장 관리")
         
         ps.show
-        // test
-        drawBase()
+        // drawBase()
+        convertCSV()
     }
 
     private def mapMaker(smin: Double, smax: Double, tmin: Double, tmax: Double)(v: Double): Double = 
@@ -101,37 +101,39 @@ class GChart_ extends Application {
         else fontSize
     }
 
-    def test() = {
+    def convertCSV() = {
         def helper(l: String) = {
             val ws = l.split(",").toList
-            val data = ws.drop(6).take(13).map(_.trim).mkString(", ")
-            (s"Seq($data)", s"// ${ws(0)} ${ws(2)}")
+            val percent = ws.drop(6).take(13).map(_.trim).mkString(", ")
+            val sd = ws.takeRight(7).map(_.trim).mkString(", ")
+            (s"Seq(Seq($percent), Seq($sd))", s"// ${ws(0)} ${ws(2)}")
         }
 
         val folder = "/home/nineclue/lab/gchart/"
         val categories = Seq("height", "weight", "bmi")
         // val categories = Seq("height")
-        val sets = categories.map(s => (s ++ "2017.csv", s))
+        val sets = categories.map(s => (s ++ "2017.csv", s.capitalize))
 
         def helper2(ls : Seq[(String, String)]) = {
             ls.init.map(t => s"${t._1}, ${t._2}") ++ Seq(ls.last).map(t => s"${t._1} ${t._2}")
         }
-        val result = new PrintWriter("GrowthData.scala")
         sets.foreach({ case (fname, cname) => 
+            val result = new PrintWriter(s"$cname.scala")
             val f = scala.io.Source.fromFile(folder ++ fname, "euc-kr")
             val ls = f.getLines.toList.map(helper)
             val male = ls.drop(2).take(228)
             val female = ls.drop(230).take(228)
-            val header = s"val $cname : Seq[Seq[Seq[Double]]] = Seq( Seq(   // MALE"
+            val header = s"object $cname {\nval measures : Seq[Seq[Seq[Seq[Double]]]] = Seq( Seq(   // MALE"
             val intrim = "), Seq(   // FEMALE"
-            val footer = "))"
+            val footer = "))}"
             val total = (((header +: helper2(male)) :+ intrim) ++ helper2(female)) :+ footer
             total.foreach(result.println)
-            result.println
+            result.close
         })
-        result.close
-        
-        // sample.map(helper).foreach(t => println(t))
+        /*
+        val sample = scala.io.Source.fromFile(folder ++ sets.head._1, "euc-kr").getLines.toList.drop(2).take(5)
+        sample.map(helper).foreach(t => println(t))
+        */
     }
 
 }
