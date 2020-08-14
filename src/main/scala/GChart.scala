@@ -7,6 +7,9 @@ import javafx.scene.paint.Color
 import javafx.scene.control.Label
 import java.io.PrintWriter
 import javafx.scene.text.Font
+import javafx.beans.value.ChangeListener
+import javafx.beans.value.ObservableValue
+import javafx.scene.layout.HBox
 
 object GChart {
     def main(as: Array[String]) =
@@ -14,8 +17,8 @@ object GChart {
 }
 
 class GChart_ extends Application {
-    val stageWidth = 1000
-    val stageHeight = 1000
+    val stageWidth = 800
+    val stageHeight = 800
     val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
     val fsmall = Font.loadFont(getClass.getResourceAsStream("NanumMyeongjo.ttf"), 12)
     val chart = new Chart(stageWidth, stageHeight - 100, Some(fsmall))
@@ -23,16 +26,42 @@ class GChart_ extends Application {
     override def start(ps: Stage) = {
         // val text = new TextArea()
         val root = new BorderPane(chart)
+        // root.setPrefSize(600, 600)
         val l = new Label(s"배달의 민족 : Pi는 ${DB.test}입니다.")
         l.setFont(flarge)
+        l.setMinHeight(40)
+        l.setPrefHeight(40)
+        l.setMaxHeight(40)
         root.setBottom(l)
+        
         val scene = new Scene(root, stageWidth, stageHeight, Color.WHITE)
         ps.setScene(scene)
         ps.setTitle("성장 관리")
+        ps.setMinWidth(stageWidth)
+        ps.setMinHeight(stageWidth)
         
+        /*
+        root.prefHeightProperty().bind(scene.heightProperty());
+        root.prefWidthProperty().bind(scene.widthProperty());
+        */
+        scene.heightProperty().addListener(new ChangeListener[Number] {
+            def changed(v: ObservableValue[_ <: Number] , ov: Number, nv: Number) = {
+                // println(nv.doubleValue())
+                
+            }
+        })
+        /*
+        scene.widthProperty().addListener(
+
+        )
+        */
         ps.show
-        val maps = chart.drawBase(HeightChart, true)
-        chart.drawRef(HeightChart, true, Percentile, maps)
+        // root.widthProperty().addListener(ne)
+        chart.draw(WeightChart, false, SD)
+        /*
+        val ds = DataStage.apply(ps)
+        ds.show()
+        */
         // convertCSV()
     }
 
