@@ -58,10 +58,8 @@ class GChart_ extends Application {
         ps.show
         // root.widthProperty().addListener(ne)
         chart.draw(WeightChart, false, SD)
-        /*
         val ds = DataStage.apply(ps)
         ds.show()
-        */
         // convertCSV()
     }
 
