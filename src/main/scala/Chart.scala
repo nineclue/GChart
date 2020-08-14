@@ -155,6 +155,7 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
                                 x2, ymap(values(ms(1))(ri)))
                 }
             })
+            // gc.setLineWidth(1.0)
             gc.setGlobalAlpha(1.0)
             rtype.legends.zipWithIndex.foreach({ case ((l, i)) =>
                 if (l.include) {
