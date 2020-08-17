@@ -23,6 +23,8 @@ import javafx.beans.property.{SimpleStringProperty, SimpleDoubleProperty}
 import javafx.beans.value.{ChangeListener, ObservableValue}
 import javafx.collections.{FXCollections, ListChangeListener}
 import javafx.scene.control.cell.PropertyValueFactory
+import javafx.scene.control.RadioButton
+import javafx.scene.control.ToggleGroup
 
 case class PatientRecord(iday: LocalDate, height: Double, weight: Double) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
@@ -42,6 +44,10 @@ case class PatientRecord(iday: LocalDate, height: Double, weight: Double) {
 trait PatientInput {
     val chartLabel: Label 
     val chartInput: TextField
+
+    val sexLabel: Label
+    val maleButton: RadioButton
+    val femaleButton: RadioButton
 
     val bdayLabel: Label 
     val bdayInput: DatePicker
@@ -82,6 +88,10 @@ object DataStage {
             val chartLabel: Label = new Label("차트번호")
             val chartInput: TextField = new TextField()
 
+            val sexLabel: Label = new Label("성별")
+            val maleButton: RadioButton = new RadioButton("남")
+            val femaleButton: RadioButton = new RadioButton("여")
+
             val bdayLabel: Label = new Label("생일")
             val bdayInput: DatePicker = new DatePicker(LocalDate.of(LocalDate.now.getYear() - 10, 1, 1))
             val idayLabel: Label = new Label("측정일")
@@ -99,15 +109,22 @@ object DataStage {
         }
 
         val p = new GridPane()
-        val firstCol: Seq[Node] = Seq(pi.chartLabel, pi.bdayLabel, pi.idayLabel, pi.heightLabel, pi.weightLabel, pi.bmiLabel)
+        val firstCol: Seq[Node] = Seq(pi.chartLabel, pi.sexLabel, pi.bdayLabel, pi.idayLabel, pi.heightLabel, pi.weightLabel, pi.bmiLabel)
         firstCol.zipWithIndex.foreach({ case (n, i) =>
             setGridPos(n, 0, i)
         })
-        val secondCol: Seq[Node] = Seq(pi.chartInput, pi.bdayInput, pi.idayInput, pi.heigthInput, pi.weightInput, pi.bmiValue, pi.commitButton)
+
+        val sexGroup = new ToggleGroup()
+        pi.maleButton.setToggleGroup(sexGroup)
+        pi.maleButton.setSelected(true)
+        pi.femaleButton.setToggleGroup(sexGroup)
+        val sexBox = new HBox(pi.maleButton, pi.femaleButton)
+
+        val secondCol: Seq[Node] = Seq(pi.chartInput, sexBox, pi.bdayInput, pi.idayInput, pi.heigthInput, pi.weightInput, pi.bmiValue, pi.commitButton)
         secondCol.zipWithIndex.foreach({ case (n, i) =>
             setGridPos(n, 1, i)
         })
-        setGridPos(pi.records, 0, 7)
+        setGridPos(pi.records, 0, 8)
         GridPane.setColumnSpan(pi.records, 2)
         val children = firstCol ++ secondCol :+ pi.records
         children.foreach(c => GridPane.setMargin(c, new Insets(3)))
