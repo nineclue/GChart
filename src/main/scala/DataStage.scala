@@ -25,6 +25,8 @@ import javafx.collections.{FXCollections, ListChangeListener}
 import javafx.scene.control.cell.PropertyValueFactory
 import javafx.scene.control.RadioButton
 import javafx.scene.control.ToggleGroup
+import javafx.scene.control.ContextMenu
+import javafx.scene.control.MenuItem
 
 case class PatientRecord(iday: LocalDate, height: Double, weight: Double) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
@@ -66,9 +68,10 @@ trait PatientInput {
     val records: TableView[PatientRecord]
 }
 
+case class Menu[A](title: String, action: (ActionEvent, A) => Unit, attach: A)
+
 object DataStage {
     type InputPane = (Pane, PatientInput)
-
     /*
     def apply(parent: Stage): Stage = {
         val ds = new Stage(StageStyle.UNDECORATED)
@@ -186,16 +189,38 @@ object DataStage {
 
         val rs = FXCollections.observableArrayList[A]()
         t.setItems(rs)
-        /*
+
         t.getSelectionModel.getSelectedIndices.addListener(
         // (obs, oldsel, newsel) => println("changed")
-            new ListChangeListener[Int] {
-            def onChanged(c: ListChangeListener.Change[_ >: Int]) = println("changed")
+            new ListChangeListener[Integer] {
+                def onChanged(c: ListChangeListener.Change[_ <: Integer]) = {
+                    print("changed : ")
+                    while (c.next) {
+                        if (c.wasPermutated()) println("permutation")
+                        else if (c.wasAdded) println("added")
+                        else if (c.wasRemoved) println("removed")
+                        else if (c.wasReplaced) println("replaced")
+                        else if (c.wasUpdated) println("updated")
+                        else println("unknown")
+                    }
+                }
             }
         )
-        */
-        // t.setContextMenu(...)
+        t.setContextMenu(menuMaker(Seq(Menu[Unit]("Delete", (e, Unit) => println("delete"), ()))))
         rs
+    }
+
+    private def menuMaker[A](menus: Seq[Menu[A]]): ContextMenu = {
+        val m = new ContextMenu()
+        val ms = menus.map({ case mi => 
+            val itm = new MenuItem(mi.title)
+            itm.setOnAction(new EventHandler[ActionEvent] {
+                def handle(e: ActionEvent) = mi.action(e, mi.attach)
+            })
+            itm
+        })
+        m.getItems.addAll(ms:_*)
+        m
     }
 
     private def setGridPos(n: Node, x: Int, y: Int) = {
