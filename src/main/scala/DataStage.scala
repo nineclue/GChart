@@ -27,6 +27,9 @@ import javafx.scene.control.RadioButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
+import javafx.stage.WindowEvent
+import java.awt.Window
+import javafx.scene.input.ContextMenuEvent
 
 case class PatientRecord(iday: LocalDate, height: Double, weight: Double) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
@@ -68,7 +71,7 @@ trait PatientInput {
     val records: TableView[PatientRecord]
 }
 
-case class Menu[A](title: String, action: (ActionEvent, A) => Unit, attach: A)
+case class Menu(title: String, enable: () => Boolean, action: (ActionEvent) => Unit)
 
 object DataStage {
     type InputPane = (Pane, PatientInput)
@@ -111,6 +114,7 @@ object DataStage {
             val records: TableView[PatientRecord] = new TableView[PatientRecord]()
         }
 
+        // put gridpane 
         val p = new GridPane()
         val firstCol: Seq[Node] = Seq(pi.chartLabel, pi.sexLabel, pi.bdayLabel, pi.idayLabel, pi.heightLabel, pi.weightLabel, pi.bmiLabel)
         firstCol.zipWithIndex.foreach({ case (n, i) =>
@@ -144,11 +148,17 @@ object DataStage {
         listRow.setMaxHeight(Double.MaxValue)
         listRow.setVgrow(Priority.ALWAYS)
         p.getRowConstraints.addAll((Range(0,7).map(_ => new RowConstraints()) :+ listRow):_*)
-
         p.setPadding(new Insets(10))
+
+        // handlers
+        pi.chartLabel.setOnContextMenuRequested(new EventHandler[ContextMenuEvent] {
+            def handle(e: ContextMenuEvent) = println("menu!!!")
+        })
+        pi.chartInput.setOnAction(new EventHandler[ActionEvent] {
+            def handle(e: ActionEvent) = println("search!!!")
+        })
         val rs = tableSet[PatientRecord](pi.records)
         rs.add(PatientRecord(LocalDate.now, 182.3, 82.0))
-        // p.setInsets(10)
         (p, pi)
     }
 
@@ -206,21 +216,30 @@ object DataStage {
                 }
             }
         )
-        t.setContextMenu(menuMaker(Seq(Menu[Unit]("Delete", (e, Unit) => println("delete"), ()))))
+        def tselected() = !t.getSelectionModel().isEmpty
+        val m1 = Seq(Menu("delete", tselected, (_) => println("delete")))
+        t.setOnContextMenuRequested(menuHandler(m1))
         rs
     }
 
-    private def menuMaker[A](menus: Seq[Menu[A]]): ContextMenu = {
+    private def menuHandler[A, B](menus: Seq[Menu]): EventHandler[ContextMenuEvent] = {
         val m = new ContextMenu()
         val ms = menus.map({ case mi => 
             val itm = new MenuItem(mi.title)
             itm.setOnAction(new EventHandler[ActionEvent] {
-                def handle(e: ActionEvent) = mi.action(e, mi.attach)
+                def handle(e: ActionEvent) = mi.action(e)
             })
             itm
         })
         m.getItems.addAll(ms:_*)
-        m
+        new EventHandler[ContextMenuEvent] {
+            def handle(e: ContextMenuEvent) = {
+                menus.zip(ms).foreach({ case ((m, mi)) => 
+                    mi.setDisable(!m.enable())
+                })                
+                m.show(e.getSource.asInstanceOf[Node], e.getScreenX(), e.getScreenY)
+            }
+        }
     }
 
     private def setGridPos(n: Node, x: Int, y: Int) = {
