@@ -1,6 +1,8 @@
 import doobie._
 import doobie.implicits._
 import doobie.util.ExecutionContexts
+import doobie.util.fragments.whereAndOpt
+import doobie.implicits.legacy.localdate._
 import cats._
 import cats.data._
 import cats.effect._
@@ -13,20 +15,21 @@ object DB {
     implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
     val xa = Transactor.fromDriverManager[IO]("org.sqlite.JDBC", "jdbc:sqlite:gchart.db", "", "")
 
-    val createPerson = sql""" +
+    val createPerson = sql"""
     CREATE TABLE IF NOT EXISTS person (
-        charno TEXT PRIMARY KEY,
+        chartno TEXT PRIMARY KEY,
         sex TEXT NOT NULL,
         birthday TEXT NOT NULL
     )
     """.update.run
     val createMeasures = sql"""
     CREATE TABLE IF NOT EXISTS measures (
-        charno TEXT NOT NULL,
+        chartno TEXT NOT NULL,
         measuredate TEXT NOT NULL,
         height REAL,
         weight REAL, 
-        FOREIGN KEY(measurecharno) REFERENCES person(charno)
+        UNIQUE (chartno, measuredate) ON CONFLICT IGNORE,
+        FOREIGN KEY (chartno) REFERENCES person(charno)
     )
     """.update.run
 
@@ -35,20 +38,28 @@ object DB {
         // createMeasures.transact(xa).unsafeRunSync
     }
 
-    def get(cno: Strig, iday: Option[LocalDate]) = {
+    def get(cno: String, iday: Option[LocalDate] = None) = {
         val idayf = iday.map(d => fr"measuredate = $d")
         val q = sql""" 
-        SELECT chartno, sex, birthday, measuredate, height, weight 
-        FROM person p, measures m WHERE p.charto = $cno AND
+        SELECT p.chartno, sex, birthday, date(measuredate, 'unixepoch'), height, weight 
+        FROM person p, measures m WHERE p.chartno = $cno AND
         p.chartno = m.chartno
-        """ ++ whereAndOpt(idayf)
+        """ ++ whereAndOpt(idayf) ++ fr"""ORDER BY measuredate"""
         q.query[PatientRecord].to[List].transact(xa).unsafeRunSync
     }
 
     def put(r: PatientRecord) = {
-        sql"""
-        INSERT OR IGNORE INTO 
-        """
+        val m = if (r.male) "M" else "F"
+        val pinsert = sql"""
+        INSERT OR IGNORE INTO person VALUES (${r.chartno}, $m, ${r.bday})
+        """.update.run
+        val mupsert = sql"""
+        INSERT INTO measures VALUES (${r.chartno}, ${r.iday}, ${r.height}, ${r.weight})
+        ON CONFLICT (chartno, measuredate) 
+        DO UPDATE SET height = ${r.height}, weight = ${r.weight}
+        WHERE chartno = ${r.chartno} AND measuredate = ${r.iday}
+        """.update.run
+        (pinsert, mupsert).mapN(_ + _).transact(xa).unsafeRunSync
     }
 
     /*

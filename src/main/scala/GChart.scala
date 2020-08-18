@@ -10,10 +10,26 @@ import javafx.scene.text.Font
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
 import javafx.scene.layout.HBox
+import java.time.LocalDate
 
 object GChart {
     def main(as: Array[String]) =
-        Application.launch(classOf[GChart_], as:_*)
+        // Application.launch(classOf[GChart_], as:_*)
+        test
+
+    def test() = {
+        println("creating tables...")
+        DB.init()
+        println("inserting rows...")
+        DB.put(PatientRecord("123", true, LocalDate.of(1970, 3, 5), LocalDate.now, Some(182), Some(83)))
+        DB.put(PatientRecord("123", true, LocalDate.of(1970, 3, 5), LocalDate.now, Some(182), Some(81)))
+        DB.put(PatientRecord("123", true, LocalDate.of(1970, 3, 5), LocalDate.of(2000,1,1), Some(180), Some(75)))
+        DB.put(PatientRecord("777", false, LocalDate.of(1969, 8, 7), LocalDate.of(2000, 1, 1), Some(164), None))
+        println("phase 1 - selecting chart number")
+        DB.get("123").foreach(println)
+        println("phase 2 - selecting chart number and date")
+        DB.get("777", Some(LocalDate.of(2000, 1, 1))).foreach(println)
+    }
 }
 
 class GChart_ extends Application {
@@ -38,7 +54,7 @@ class GChart_ extends Application {
 
         val scene = new Scene(root, Color.WHITE)
         ps.setScene(scene)
-        ps.setTitle("성장 관리")
+        ps.setTitle("성장 곡선")
         // ps.setMinWidth(stageWidth)
         // ps.setMinHeight(stageWidth)
         
