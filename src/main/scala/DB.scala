@@ -31,6 +31,7 @@ object DB {
     """.update.run
     */
 
+    // def saveRecord()
     def test() = {
         val createPi = sql"""
         CREATE TABLE IF NOT EXISTS pi (

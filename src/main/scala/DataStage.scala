@@ -30,11 +30,12 @@ import javafx.scene.control.MenuItem
 import javafx.stage.WindowEvent
 import java.awt.Window
 import javafx.scene.input.ContextMenuEvent
+import javafx.scene.input.KeyEvent
 
-case class PatientRecord(iday: LocalDate, height: Double, weight: Double) {
+case class PatientRecord(chartno: String, male: Boolean, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
-    private val heightProperty = new SimpleDoubleProperty(height)
-    private val weightProperty = new SimpleDoubleProperty(weight)
+    private val heightProperty = new SimpleDoubleProperty(height.getOrElse(0.0))
+    private val weightProperty = new SimpleDoubleProperty(weight.getOrElse(0.0))
 
     def getIday() = idayProperty.get
     def setIday(d: String) = LocalDate.parse(d)
@@ -60,7 +61,7 @@ trait PatientInput {
     val idayInput: DatePicker 
 
     val heightLabel: Label 
-    val heigthInput: TextField
+    val heightInput: TextField
     val weightLabel: Label 
     val weightInput: TextField
     val bmiLabel: Label 
@@ -71,23 +72,10 @@ trait PatientInput {
     val records: TableView[PatientRecord]
 }
 
-case class Menu(title: String, enable: () => Boolean, action: (ActionEvent) => Unit)
+case class Menu(title: String, disable: () => Boolean, action: (ActionEvent) => Unit)
 
 object DataStage {
     type InputPane = (Pane, PatientInput)
-    /*
-    def apply(parent: Stage): Stage = {
-        val ds = new Stage(StageStyle.UNDECORATED)
-        ds.initOwner(parent)
-        ds.initModality(Modality.APPLICATION_MODAL)
-        val (box, pi) = inputPane()
-        pi.commitButton.setOnAction(new EventHandler[ActionEvent] {
-            def handle(e: ActionEvent) = ds.close()
-        })
-        ds.setScene(new Scene(box))
-        ds
-    }
-    */
 
     def inputPane(): InputPane = {
         val pi: PatientInput = new PatientInput {
@@ -104,7 +92,7 @@ object DataStage {
             val idayInput: DatePicker = new DatePicker(LocalDate.now)
 
             val heightLabel: Label = new Label("키")
-            val heigthInput: TextField = new TextField()
+            val heightInput: TextField = new TextField()
             val weightLabel: Label = new Label("몸무게")
             val weightInput: TextField = new TextField()
             val bmiLabel: Label = new Label("BMI")
@@ -115,6 +103,15 @@ object DataStage {
         }
 
         // put gridpane 
+        val p = setPosition(pi)
+        setHandlers(pi)
+
+        val rs = tableSet[PatientRecord](pi.records)
+        rs.add(PatientRecord("123", true, LocalDate.of(1970, 3, 5), LocalDate.now, Some(182.3), None))
+        (p, pi)
+    }
+
+    private def setPosition(pi: PatientInput): Pane = {
         val p = new GridPane()
         val firstCol: Seq[Node] = Seq(pi.chartLabel, pi.sexLabel, pi.bdayLabel, pi.idayLabel, pi.heightLabel, pi.weightLabel, pi.bmiLabel)
         firstCol.zipWithIndex.foreach({ case (n, i) =>
@@ -127,7 +124,7 @@ object DataStage {
         pi.femaleButton.setToggleGroup(sexGroup)
         val sexBox = new HBox(pi.maleButton, pi.femaleButton)
 
-        val secondCol: Seq[Node] = Seq(pi.chartInput, sexBox, pi.bdayInput, pi.idayInput, pi.heigthInput, pi.weightInput, pi.bmiValue, pi.commitButton)
+        val secondCol: Seq[Node] = Seq(pi.chartInput, sexBox, pi.bdayInput, pi.idayInput, pi.heightInput, pi.weightInput, pi.bmiValue, pi.commitButton)
         secondCol.zipWithIndex.foreach({ case (n, i) =>
             setGridPos(n, 1, i)
         })
@@ -149,17 +146,29 @@ object DataStage {
         listRow.setVgrow(Priority.ALWAYS)
         p.getRowConstraints.addAll((Range(0,7).map(_ => new RowConstraints()) :+ listRow):_*)
         p.setPadding(new Insets(10))
+        p
+    }
 
-        // handlers
+    private def setHandlers(pi: PatientInput) = {
+        def savable() = {
+            val cnoOk = pi.chartInput.getText().trim().nonEmpty
+            val heightOk = pi.heightInput.getText().trim().toDoubleOption.nonEmpty
+            val weightOk = pi.weightInput.getText().trim().toDoubleOption.nonEmpty
+            cnoOk && (heightOk || weightOk)
+        }
+        val inputHandler = mkEventHandler[KeyEvent](e => pi.commitButton.setDisable(!savable()))
+        pi.chartInput.setOnKeyTyped(inputHandler)
+        pi.heightInput.setOnKeyTyped(inputHandler)
+        pi.weightInput.setOnKeyTyped(inputHandler)
+        pi.commitButton.setDisable(true)
+
         pi.chartLabel.setOnContextMenuRequested(new EventHandler[ContextMenuEvent] {
             def handle(e: ContextMenuEvent) = println("menu!!!")
         })
         pi.chartInput.setOnAction(new EventHandler[ActionEvent] {
             def handle(e: ActionEvent) = println("search!!!")
         })
-        val rs = tableSet[PatientRecord](pi.records)
-        rs.add(PatientRecord(LocalDate.now, 182.3, 82.0))
-        (p, pi)
+        // pi.commitButton.setOnAction(mkEventHandler[KeyEvent](e => ))
     }
 
     private def tableSet[A](t: TableView[A]) = {
@@ -187,12 +196,6 @@ object DataStage {
             }
         })
 
-        /* // auto growing table
-        c1.prefWidthProperty.bind(t.widthProperty().multiply(0.4))
-        c2.prefWidthProperty.bind(t.widthProperty().multiply(0.3))
-        c3.prefWidthProperty.bind(t.widthProperty().multiply(0.3))
-        */
-
         c1.setCellValueFactory(new PropertyValueFactory[A, String]("iday"))
         c2.setCellValueFactory(new PropertyValueFactory[A, Double]("height"))
         c3.setCellValueFactory(new PropertyValueFactory[A, Double]("weight"))
@@ -216,13 +219,18 @@ object DataStage {
                 }
             }
         )
-        def tselected() = !t.getSelectionModel().isEmpty
-        val m1 = Seq(Menu("delete", tselected, (_) => println("delete")))
-        t.setOnContextMenuRequested(menuHandler(m1))
+        def tableNotSelected() = t.getSelectionModel().isEmpty
+        val m1 = Seq(Menu("delete", tableNotSelected, (_) => println("delete")))
+        t.setOnContextMenuRequested(mkMenuHandler(m1))
         rs
     }
 
-    private def menuHandler[A, B](menus: Seq[Menu]): EventHandler[ContextMenuEvent] = {
+    private def mkEventHandler[A <: javafx.event.Event](action: A => Unit): EventHandler[A] = 
+        new EventHandler[A] {
+            def handle(e: A) = action(e)
+        }
+
+    private def mkMenuHandler[A, B](menus: Seq[Menu]): EventHandler[ContextMenuEvent] = {
         val m = new ContextMenu()
         val ms = menus.map({ case mi => 
             val itm = new MenuItem(mi.title)
@@ -235,7 +243,7 @@ object DataStage {
         new EventHandler[ContextMenuEvent] {
             def handle(e: ContextMenuEvent) = {
                 menus.zip(ms).foreach({ case ((m, mi)) => 
-                    mi.setDisable(!m.enable())
+                    mi.setDisable(m.disable())
                 })                
                 m.show(e.getSource.asInstanceOf[Node], e.getScreenX(), e.getScreenY)
             }
