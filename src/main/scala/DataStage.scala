@@ -67,18 +67,6 @@ object CalendarConverter extends StringConverter[LocalDate] {
     def toString(d: LocalDate): String = s"${d.getYear}년 ${d.getMonthValue}월 ${d.getDayOfMonth}일"
 }
 
-object NumberInputHandler extends EventHandler[KeyEvent] {
-    def handle(e: KeyEvent) = {
-        val tf = e.getSource().asInstanceOf[TextField]
-        if (e.getCharacter.matches("[0-9.]")) {
-            if (e.getCharacter.matches("[.]") && 
-                (tf.getText().contains('.') || tf.getText.length == 0)) 
-                e.consume
-        } else
-            e.consume
-    }
-}
-
 trait PatientInput {
     val chartLabel: Label 
     val chartInput: TextField
@@ -108,6 +96,7 @@ case class Menu(title: String, disable: () => Boolean, action: (ActionEvent) => 
 
 object DataStage {
     type InputPane = (Pane, PatientInput)
+    val bmiDefault = "N/A"
 
     def inputPane(): InputPane = {
         val pi: PatientInput = new PatientInput {
@@ -128,7 +117,7 @@ object DataStage {
             val weightLabel: Label = new Label("몸무게")
             val weightInput: TextField = new TextField()
             val bmiLabel: Label = new Label("BMI")
-            val bmiValue: Label = new Label("0")
+            val bmiValue: Label = new Label(bmiDefault)
 
             val commitButton: Button = new Button("저장 및 그래프")
             val records: TableView[PatientRecord] = new TableView[PatientRecord]()
@@ -196,12 +185,30 @@ object DataStage {
             !(cnoOk && (iday.compareTo(bday) > 0))
         }
         val inputHandler = mkEventHandler[KeyEvent](e => pi.commitButton.setDisable(!savable()))
-        // val numberInputHandler = mkNumberInputHandler(_ => pi.commitButton.setDisable(!savable()))
         pi.chartInput.setOnKeyTyped(inputHandler)
         pi.heightInput.setOnKeyTyped(inputHandler)
-        // pi.heightInput.setOnKeyPressed(NumberInputHandler)
         pi.weightInput.setOnKeyTyped(inputHandler)
+
+        val bmiListener = new ChangeListener[String] {
+            def changed(obv: ObservableValue[_ <: String], ov: String, nv: String) = {
+                if (content(pi.heightInput).nonEmpty && content(pi.weightInput).nonEmpty) {
+                    val bmi = 
+                        pi.heightInput.getText.toDoubleOption.flatMap(h =>
+                            pi.weightInput.getText.toDoubleOption.map({ w =>
+                                val hmeter = h / 100
+                                w / (hmeter * hmeter)
+                            })
+                        )
+                    pi.bmiValue.setText(bmi.map("%.2f".format(_)).getOrElse(bmiDefault))
+                } else {
+                    pi.bmiValue.setText(bmiDefault)
+                }
+            }
+        }
         pi.heightInput.textProperty().addListener(mkNumberInputHandler(pi.heightInput))
+        pi.heightInput.textProperty().addListener(bmiListener)
+        pi.weightInput.textProperty().addListener(mkNumberInputHandler(pi.weightInput))
+        pi.weightInput.textProperty().addListener(bmiListener)
         pi.commitButton.setDisable(true)
 
         pi.bdayInput.setConverter(CalendarConverter)
@@ -224,7 +231,9 @@ object DataStage {
         pi.chartInput.setOnAction(new EventHandler[ActionEvent] {
             def handle(e: ActionEvent) = println("search!!!")
         })
-        // pi.commitButton.setOnAction(mkEventHandler[KeyEvent](e => ))
+
+        def harvest() = PatientRecord(content(pi.chartInput), pi.maleButton.isSelected, pi.bdayInput.getValue, pi.idayInput.getValue, pi.heightInput.getText.toDoubleOption, pi.weightInput.getText.toDoubleOption)
+        pi.commitButton.setOnAction(mkEventHandler[ActionEvent](e => println(harvest())))
     }
 
     private def tableSet[A](t: TableView[A]) = {
@@ -307,14 +316,23 @@ object DataStage {
     }
 
     private def mkNumberInputHandler(s: TextField) = new ChangeListener[String] {
-        val nums = raw"[0-9]+[.]*[0-9]*"
+        val nums = raw"[0-9]+[.]?[0-9]*"
         def changed(obv: ObservableValue[_ <: String], ov: String, nv: String) = {
-            if (!nv.matches(nums))
-                s.setText(nv.split('.').take(2).map(_.filter(ch => (ch >= '0' && ch <= '9'))).mkString("."))
+            if (!nv.matches(nums)) {
+                /*
+                val commas = Range(0, nv.length()).map(i => (i, nv(i))).withFilter({ case (_, ch) => ch == '.'}).map(_._1)
+                val t = if (commas.length >= 2) nv.take(commas(2)-1) else nv
+                println(t)
+                */
+                /*
+                println(s"BOOM! ${nv.split('.').length} - ${nv.split('.').mkString(":")}")
+                s.setText(nv.split('.').appended("").take(2).map(_.filter(ch => (ch >= '0' && ch <= '9'))).mkString("."))
+                */
+                s.setText(nv.init)
+            }
         }
     }
 
-    // private def mkListner[A]() = new L
     private def setGridPos(n: Node, x: Int, y: Int) = {
         GridPane.setColumnIndex(n, x)
         GridPane.setRowIndex(n, y)

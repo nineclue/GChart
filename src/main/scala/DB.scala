@@ -6,13 +6,13 @@ import cats.data._
 import cats.effect._
 import cats.implicits._
 import java.sql.DriverManager
+import java.time.LocalDate
 
 object DB {
     // lazy val connection = DriverManager.getConnection("jdbc:sqlite:gchart.db")
     implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
     val xa = Transactor.fromDriverManager[IO]("org.sqlite.JDBC", "jdbc:sqlite:gchart.db", "", "")
 
-    /*
     val createPerson = sql""" +
     CREATE TABLE IF NOT EXISTS person (
         charno TEXT PRIMARY KEY,
@@ -29,9 +29,29 @@ object DB {
         FOREIGN KEY(measurecharno) REFERENCES person(charno)
     )
     """.update.run
-    */
 
-    // def saveRecord()
+    def init() = {
+        (createPerson, createMeasures).mapN(_ + _).transact(xa).unsafeRunSync
+        // createMeasures.transact(xa).unsafeRunSync
+    }
+
+    def get(cno: Strig, iday: Option[LocalDate]) = {
+        val idayf = iday.map(d => fr"measuredate = $d")
+        val q = sql""" 
+        SELECT chartno, sex, birthday, measuredate, height, weight 
+        FROM person p, measures m WHERE p.charto = $cno AND
+        p.chartno = m.chartno
+        """ ++ whereAndOpt(idayf)
+        q.query[PatientRecord].to[List].transact(xa).unsafeRunSync
+    }
+
+    def put(r: PatientRecord) = {
+        sql"""
+        INSERT OR IGNORE INTO 
+        """
+    }
+
+    /*
     def test() = {
         val createPi = sql"""
         CREATE TABLE IF NOT EXISTS pi (
@@ -60,4 +80,5 @@ object DB {
 
         nums.mkString
     }
+    */
 }
