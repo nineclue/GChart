@@ -28,9 +28,10 @@ import javafx.scene.control.ToggleGroup
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
 import javafx.stage.WindowEvent
-import java.awt.Window
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyEvent
+import javafx.util.StringConverter
+import javafx.application.Platform
 
 case class PatientRecord(chartno: String, male: Boolean, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
@@ -45,6 +46,37 @@ case class PatientRecord(chartno: String, male: Boolean, bday: LocalDate, iday: 
 
     def getWeight = weightProperty.get
     def setWeight(w: Double) = weightProperty.set(w)
+}
+
+object CalendarConverter extends StringConverter[LocalDate] {
+    def fromString(s: String): LocalDate = {
+        val date = raw"(\d{2,4})(\D)(\d{1,2})\2(\d{1,2})".r
+        s match {
+            case date(ys, _, m, d) => 
+                val y = ys.toInt
+                val year = 
+                    if (y < 100) {
+                        if (y >= (LocalDate.now.getYear % 100)) y + 1900
+                        else y + 2000
+                    } else y
+                LocalDate.of(year, m.toInt, d.toInt)
+            case _ =>
+                LocalDate.now
+        }
+    }
+    def toString(d: LocalDate): String = s"${d.getYear}년 ${d.getMonthValue}월 ${d.getDayOfMonth}일"
+}
+
+object NumberInputHandler extends EventHandler[KeyEvent] {
+    def handle(e: KeyEvent) = {
+        val tf = e.getSource().asInstanceOf[TextField]
+        if (e.getCharacter.matches("[0-9.]")) {
+            if (e.getCharacter.matches("[.]") && 
+                (tf.getText().contains('.') || tf.getText.length == 0)) 
+                e.consume
+        } else
+            e.consume
+    }
 }
 
 trait PatientInput {
@@ -150,21 +182,45 @@ object DataStage {
     }
 
     private def setHandlers(pi: PatientInput) = {
+        def content(i: TextField) = i.getText.trim
         def savable() = {
-            val cnoOk = pi.chartInput.getText().trim().nonEmpty
-            val heightOk = pi.heightInput.getText().trim().toDoubleOption.nonEmpty
-            val weightOk = pi.weightInput.getText().trim().toDoubleOption.nonEmpty
+            val cnoOk = content(pi.chartInput).nonEmpty
+            val heightOk = content(pi.heightInput).toDoubleOption.nonEmpty
+            val weightOk = content(pi.weightInput).toDoubleOption.nonEmpty
             cnoOk && (heightOk || weightOk)
         }
+        def notModifiable() = {
+            val cnoOk = content(pi.chartInput).nonEmpty
+            val iday = pi.idayInput.getValue
+            val bday = pi.bdayInput.getValue
+            !(cnoOk && (iday.compareTo(bday) > 0))
+        }
         val inputHandler = mkEventHandler[KeyEvent](e => pi.commitButton.setDisable(!savable()))
+        // val numberInputHandler = mkNumberInputHandler(_ => pi.commitButton.setDisable(!savable()))
         pi.chartInput.setOnKeyTyped(inputHandler)
         pi.heightInput.setOnKeyTyped(inputHandler)
+        // pi.heightInput.setOnKeyPressed(NumberInputHandler)
         pi.weightInput.setOnKeyTyped(inputHandler)
+        pi.heightInput.textProperty().addListener(mkNumberInputHandler(pi.heightInput))
         pi.commitButton.setDisable(true)
 
-        pi.chartLabel.setOnContextMenuRequested(new EventHandler[ContextMenuEvent] {
-            def handle(e: ContextMenuEvent) = println("menu!!!")
-        })
+        pi.bdayInput.setConverter(CalendarConverter)
+        pi.idayInput.setConverter(CalendarConverter)
+        def focused(p: DatePicker) = new ChangeListener[java.lang.Boolean] {
+            def changed(obv: ObservableValue[_ <: java.lang.Boolean], ov: java.lang.Boolean, nv: java.lang.Boolean) = {
+                if (nv) { 
+                    Platform.runLater(new Runnable {
+                        def run() = p.getEditor.selectAll
+                    })
+                }
+            }
+        }
+        pi.bdayInput.focusedProperty().addListener(focused(pi.bdayInput))
+        pi.idayInput.focusedProperty().addListener(focused(pi.idayInput))
+
+        val modifyMenu = Seq(Menu("수정", notModifiable, (_) => println("수정!!!")))
+        pi.chartLabel.setOnContextMenuRequested(mkMenuHandler(modifyMenu))
+
         pi.chartInput.setOnAction(new EventHandler[ActionEvent] {
             def handle(e: ActionEvent) = println("search!!!")
         })
@@ -250,6 +306,15 @@ object DataStage {
         }
     }
 
+    private def mkNumberInputHandler(s: TextField) = new ChangeListener[String] {
+        val nums = raw"[0-9]+[.]*[0-9]*"
+        def changed(obv: ObservableValue[_ <: String], ov: String, nv: String) = {
+            if (!nv.matches(nums))
+                s.setText(nv.split('.').take(2).map(_.filter(ch => (ch >= '0' && ch <= '9'))).mkString("."))
+        }
+    }
+
+    // private def mkListner[A]() = new L
     private def setGridPos(n: Node, x: Int, y: Int) = {
         GridPane.setColumnIndex(n, x)
         GridPane.setRowIndex(n, y)
