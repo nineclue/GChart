@@ -2,7 +2,7 @@ import doobie._
 import doobie.implicits._
 import doobie.util.ExecutionContexts
 import doobie.util.fragments.whereAndOpt
-import doobie.implicits.legacy.localdate._
+// import doobie.implicits.legacy.localdate._
 import cats._
 import cats.data._
 import cats.effect._
@@ -14,6 +14,8 @@ object DB {
     // lazy val connection = DriverManager.getConnection("jdbc:sqlite:gchart.db")
     implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
     val xa = Transactor.fromDriverManager[IO]("org.sqlite.JDBC", "jdbc:sqlite:gchart.db", "", "")
+
+    implicit val localDateMeta: Meta[LocalDate] = Meta[String].imap(LocalDate.parse)(_.toString)
 
     val createPerson = sql"""
     CREATE TABLE IF NOT EXISTS person (
@@ -35,16 +37,16 @@ object DB {
 
     def init() = {
         (createPerson, createMeasures).mapN(_ + _).transact(xa).unsafeRunSync
-        // createMeasures.transact(xa).unsafeRunSync
     }
 
     def get(cno: String, iday: Option[LocalDate] = None) = {
+        val chartf = Some(fr"p.chartno = $cno")
         val idayf = iday.map(d => fr"measuredate = $d")
         val q = sql""" 
-        SELECT p.chartno, sex, birthday, date(measuredate, 'unixepoch'), height, weight 
-        FROM person p, measures m WHERE p.chartno = $cno AND
-        p.chartno = m.chartno
-        """ ++ whereAndOpt(idayf) ++ fr"""ORDER BY measuredate"""
+        SELECT p.chartno, sex, birthday, measuredate, height, weight 
+        FROM person p INNER JOIN measures m on p.chartno = m.chartno
+        """ ++ whereAndOpt(chartf, idayf) ++ fr"""ORDER BY measuredate"""
+        println(q.toString())
         q.query[PatientRecord].to[List].transact(xa).unsafeRunSync
     }
 

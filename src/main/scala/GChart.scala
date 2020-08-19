@@ -14,8 +14,7 @@ import java.time.LocalDate
 
 object GChart {
     def main(as: Array[String]) =
-        // Application.launch(classOf[GChart_], as:_*)
-        test
+        Application.launch(classOf[GChart_], as:_*)
 
     def test() = {
         println("creating tables...")

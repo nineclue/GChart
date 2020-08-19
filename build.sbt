@@ -29,8 +29,10 @@ val folderName =
 libraryDependencies ++= Seq(
     "org.openjfx" % "javafx-base" % "11",
     "org.openjfx" % "javafx-controls" % "11",
+    /*
     "org.openjfx" % "javafx-graphics" % "11" classifier "win",
-    // "org.openjfx" % "javafx-graphics" % "11" classifier "linux",
+    "org.openjfx" % "javafx-graphics" % "11" classifier "linux",
+    */
     "org.xerial" % "sqlite-jdbc" % "3.32.3.2",
     "org.tpolecat" %% "doobie-core" % "0.9.0",
     "org.tpolecat" %% "doobie-quill" % "0.9.0"
