@@ -36,17 +36,17 @@ import javafx.scene.control.SelectionMode
 
 case class PatientRecord(chartno: String, sex: String, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
-    private val heightProperty = new SimpleStringProperty(height.getOrElse(0.0))
-    private val weightProperty = new SimpleDoubleProperty(weight.getOrElse(0.0))
+    private val heightProperty = new SimpleStringProperty(height.map(_.toString).getOrElse(""))
+    private val weightProperty = new SimpleStringProperty(weight.map(_.toString).getOrElse(""))
 
     def getIday() = idayProperty.get
     def setIday(d: String) = LocalDate.parse(d)
 
     def getHeight = heightProperty.get
-    def setHeight(h: Double) = heightProperty.set(h)
+    def setHeight(h: String) = heightProperty.set(h)
 
     def getWeight = weightProperty.get
-    def setWeight(w: Double) = weightProperty.set(w)
+    def setWeight(w: String) = weightProperty.set(w)
 }
 
 object CalendarConverter extends StringConverter[LocalDate] {
@@ -305,8 +305,8 @@ object DataStage {
         t.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)        
 
         val c1 = new TableColumn[PatientRecord, String]("기록일")
-        val c2 = new TableColumn[PatientRecord, Double]("키")
-        val c3 = new TableColumn[PatientRecord, Double]("몸무게")
+        val c2 = new TableColumn[PatientRecord, String]("키")
+        val c3 = new TableColumn[PatientRecord, String]("몸무게")
         t.getColumns.addAll(c1, c2, c3)
 
         Seq(c1, c2, c3).foreach({ c => 
@@ -327,8 +327,8 @@ object DataStage {
         })
 
         c1.setCellValueFactory(new PropertyValueFactory[PatientRecord, String]("iday"))
-        c2.setCellValueFactory(new PropertyValueFactory[PatientRecord, Double]("height"))
-        c3.setCellValueFactory(new PropertyValueFactory[PatientRecord, Double]("weight"))
+        c2.setCellValueFactory(new PropertyValueFactory[PatientRecord, String]("height"))
+        c3.setCellValueFactory(new PropertyValueFactory[PatientRecord, String]("weight"))
 
         t.setPlaceholder(new Label("이전 자료가 없습니다."))
         t.setItems(records)
