@@ -24,6 +24,7 @@ object DB {
         birthday TEXT NOT NULL
     )
     """.update.run
+
     val createMeasures = sql"""
     CREATE TABLE IF NOT EXISTS measures (
         chartno TEXT NOT NULL,
@@ -34,6 +35,9 @@ object DB {
         FOREIGN KEY (chartno) REFERENCES person(charno)
     )
     """.update.run
+
+    private def sex(r: PatientRecord) = 
+        if (r.male) "M" else "F"
 
     def init() = {
         (createPerson, createMeasures).mapN(_ + _).transact(xa).unsafeRunSync
@@ -46,14 +50,13 @@ object DB {
         SELECT p.chartno, sex, birthday, measuredate, height, weight 
         FROM person p INNER JOIN measures m on p.chartno = m.chartno
         """ ++ whereAndOpt(chartf, idayf) ++ fr"""ORDER BY measuredate"""
-        println(q.toString())
+        // println(q.toString())
         q.query[PatientRecord].to[List].transact(xa).unsafeRunSync
     }
 
     def put(r: PatientRecord) = {
-        val m = if (r.male) "M" else "F"
         val pinsert = sql"""
-        INSERT OR IGNORE INTO person VALUES (${r.chartno}, $m, ${r.bday})
+        INSERT OR IGNORE INTO person VALUES (${r.chartno}, ${sex(r)}, ${r.bday})
         """.update.run
         val mupsert = sql"""
         INSERT INTO measures VALUES (${r.chartno}, ${r.iday}, ${r.height}, ${r.weight})
@@ -62,6 +65,19 @@ object DB {
         WHERE chartno = ${r.chartno} AND measuredate = ${r.iday}
         """.update.run
         (pinsert, mupsert).mapN(_ + _).transact(xa).unsafeRunSync
+    }
+
+    def deleteMeasure(cno: String, iday: LocalDate) = {
+        sql"""
+        DELETE FROM measures WHERE chartno = $cno AND measureday = $iday
+        """.update.run.transact(xa).unsafeRunSync
+    }
+
+    def changePerson(o: PatientRecord, n: PatientRecord) = {
+        sql"""
+        UPDATE person SET chartno = ${o.chartno}, sex = ${sex(o)}, birthday = ${o.bday}
+        WHERE chartno = ${n.chartno}, sex = ${sex(n)}, birthday = ${n.bday}
+        """.update.run.transact(xa).unsafeRunSync()
     }
 
     /*

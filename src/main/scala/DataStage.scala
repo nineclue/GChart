@@ -32,6 +32,7 @@ import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyEvent
 import javafx.util.StringConverter
 import javafx.application.Platform
+import javafx.scene.control.SelectionMode
 
 case class PatientRecord(chartno: String, male: Boolean, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
@@ -97,6 +98,8 @@ case class Menu(title: String, disable: () => Boolean, action: (ActionEvent) => 
 object DataStage {
     type InputPane = (Pane, PatientInput)
     val bmiDefault = "N/A"
+    val records = FXCollections.observableArrayList[PatientRecord]()
+    var loadedRecord: Option[PatientRecord] = None
 
     def inputPane(): InputPane = {
         val pi: PatientInput = new PatientInput {
@@ -112,9 +115,9 @@ object DataStage {
             val idayLabel: Label = new Label("측정일")
             val idayInput: DatePicker = new DatePicker(LocalDate.now)
 
-            val heightLabel: Label = new Label("키")
+            val heightLabel: Label = new Label("키 (cm)")
             val heightInput: TextField = new TextField()
-            val weightLabel: Label = new Label("몸무게")
+            val weightLabel: Label = new Label("몸무게 (Kg)")
             val weightInput: TextField = new TextField()
             val bmiLabel: Label = new Label("BMI")
             val bmiValue: Label = new Label(bmiDefault)
@@ -127,8 +130,7 @@ object DataStage {
         val p = setPosition(pi)
         setHandlers(pi)
 
-        val rs = tableSet[PatientRecord](pi.records)
-        rs.add(PatientRecord("123", true, LocalDate.of(1970, 3, 5), LocalDate.now, Some(182.3), None))
+        tableSet(pi)
         (p, pi)
     }
 
@@ -141,10 +143,10 @@ object DataStage {
 
         val sexGroup = new ToggleGroup()
         pi.maleButton.setToggleGroup(sexGroup)
-        pi.maleButton.setSelected(true)
         pi.femaleButton.setToggleGroup(sexGroup)
+        pi.maleButton.setSelected(true)
         val sexBox = new HBox(pi.maleButton, pi.femaleButton)
-
+        
         val secondCol: Seq[Node] = Seq(pi.chartInput, sexBox, pi.bdayInput, pi.idayInput, pi.heightInput, pi.weightInput, pi.bmiValue, pi.commitButton)
         secondCol.zipWithIndex.foreach({ case (n, i) =>
             setGridPos(n, 1, i)
@@ -170,25 +172,31 @@ object DataStage {
         p
     }
 
+    private def content(i: TextField) = i.getText.trim
+
     private def setHandlers(pi: PatientInput) = {
-        def content(i: TextField) = i.getText.trim
+        // 현재 저장가능한지
         def savable() = {
             val cnoOk = content(pi.chartInput).nonEmpty
             val heightOk = content(pi.heightInput).toDoubleOption.nonEmpty
             val weightOk = content(pi.weightInput).toDoubleOption.nonEmpty
             cnoOk && (heightOk || weightOk)
         }
+        // 환자 기본 정보 수정 가능 여부
         def notModifiable() = {
             val cnoOk = content(pi.chartInput).nonEmpty
             val iday = pi.idayInput.getValue
             val bday = pi.bdayInput.getValue
             !(cnoOk && (iday.compareTo(bday) > 0))
         }
+
+        // 저장 그래프 버트 활성화
         val inputHandler = mkEventHandler[KeyEvent](e => pi.commitButton.setDisable(!savable()))
         pi.chartInput.setOnKeyTyped(inputHandler)
         pi.heightInput.setOnKeyTyped(inputHandler)
         pi.weightInput.setOnKeyTyped(inputHandler)
 
+        // 신장, 체중에 숫자만 입력 & bmi update
         val bmiListener = new ChangeListener[String] {
             def changed(obv: ObservableValue[_ <: String], ov: String, nv: String) = {
                 if (content(pi.heightInput).nonEmpty && content(pi.weightInput).nonEmpty) {
@@ -211,8 +219,11 @@ object DataStage {
         pi.weightInput.textProperty().addListener(bmiListener)
         pi.commitButton.setDisable(true)
 
+        // 생일, 측정일 basic parser
         pi.bdayInput.setConverter(CalendarConverter)
         pi.idayInput.setConverter(CalendarConverter)
+
+        // 생일, 측정일 focus시 기존 입력이 모두 선택되도록 
         def focused(p: DatePicker) = new ChangeListener[java.lang.Boolean] {
             def changed(obv: ObservableValue[_ <: java.lang.Boolean], ov: java.lang.Boolean, nv: java.lang.Boolean) = {
                 if (nv) { 
@@ -229,19 +240,51 @@ object DataStage {
         pi.chartLabel.setOnContextMenuRequested(mkMenuHandler(modifyMenu))
 
         pi.chartInput.setOnAction(new EventHandler[ActionEvent] {
-            def handle(e: ActionEvent) = println("search!!!")
+            def handle(e: ActionEvent) = {
+                loadPatient(pi)
+            }
         })
 
         def harvest() = PatientRecord(content(pi.chartInput), pi.maleButton.isSelected, pi.bdayInput.getValue, pi.idayInput.getValue, pi.heightInput.getText.toDoubleOption, pi.weightInput.getText.toDoubleOption)
         pi.commitButton.setOnAction(mkEventHandler[ActionEvent](e => println(harvest())))
     }
 
-    private def tableSet[A](t: TableView[A]) = {
+    // 차트번호에서 Enter 치면 실행되는 루틴
+    // 기존 기록 읽고 없으면 환자 기록 수정 가능 설정
+    private def loadPatient(pi: PatientInput) = {
+        val rs = DB.get(content(pi.chartInput))
+        loadedRecord = None
+        records.clear
+        records.addAll(rs:_*)
+        setPatientRelatedFields(pi, rs.isEmpty)        
+    }
+
+    private def setPatientRelatedFields(pi: PatientInput, enable: Boolean) = {
+        pi.maleButton.setDisable(!enable)
+        pi.femaleButton.setDisable(!enable)
+        pi.bdayInput.setEditable(enable)
+        pi.bdayInput.setDisable(!enable)
+    }
+
+    private def updateControls(pi: PatientInput, r: PatientRecord) = {
+        if (r.male) pi.maleButton.setSelected(true) 
+        else pi.femaleButton.setSelected(true)
+
+        pi.bdayInput.setValue(r.bday)
+        pi.idayInput.setValue(r.iday)
+
+        r.height.foreach(h => pi.heightInput.setText(h.toString))
+        r.weight.foreach(w => pi.weightInput.setText(w.toString))
+    }
+
+    private def tableSet(pi: PatientInput) = {
+        val t = pi.records
         t.setEditable(false)
-        
-        val c1 = new TableColumn[A, String]("기록일")
-        val c2 = new TableColumn[A, Double]("키")
-        val c3 = new TableColumn[A, Double]("몸무게")
+        t.getSelectionModel.setSelectionMode(SelectionMode.SINGLE)        
+
+        val c1 = new TableColumn[PatientRecord, String]("기록일")
+        val c2 = new TableColumn[PatientRecord, Double]("키")
+        val c3 = new TableColumn[PatientRecord, Double]("몸무게")
         t.getColumns.addAll(c1, c2, c3)
 
         Seq(c1, c2, c3).foreach({ c => 
@@ -261,33 +304,23 @@ object DataStage {
             }
         })
 
-        c1.setCellValueFactory(new PropertyValueFactory[A, String]("iday"))
-        c2.setCellValueFactory(new PropertyValueFactory[A, Double]("height"))
-        c3.setCellValueFactory(new PropertyValueFactory[A, Double]("weight"))
+        c1.setCellValueFactory(new PropertyValueFactory[PatientRecord, String]("iday"))
+        c2.setCellValueFactory(new PropertyValueFactory[PatientRecord, Double]("height"))
+        c3.setCellValueFactory(new PropertyValueFactory[PatientRecord, Double]("weight"))
 
-        val rs = FXCollections.observableArrayList[A]()
-        t.setItems(rs)
-
+        t.setPlaceholder(new Label("이전 자료가 없습니다."))
+        t.setItems(records)
         t.getSelectionModel.getSelectedIndices.addListener(
-        // (obs, oldsel, newsel) => println("changed")
             new ListChangeListener[Integer] {
                 def onChanged(c: ListChangeListener.Change[_ <: Integer]) = {
-                    print("changed : ")
-                    while (c.next) {
-                        if (c.wasPermutated()) println("permutation")
-                        else if (c.wasAdded) println("added")
-                        else if (c.wasRemoved) println("removed")
-                        else if (c.wasReplaced) println("replaced")
-                        else if (c.wasUpdated) println("updated")
-                        else println("unknown")
-                    }
+                    updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()))
                 }
             }
         )
+        
         def tableNotSelected() = t.getSelectionModel().isEmpty
         val m1 = Seq(Menu("delete", tableNotSelected, (_) => println("delete")))
         t.setOnContextMenuRequested(mkMenuHandler(m1))
-        rs
     }
 
     private def mkEventHandler[A <: javafx.event.Event](action: A => Unit): EventHandler[A] = 

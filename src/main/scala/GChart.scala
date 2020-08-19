@@ -13,10 +13,12 @@ import javafx.scene.layout.HBox
 import java.time.LocalDate
 
 object GChart {
-    def main(as: Array[String]) =
+    def main(as: Array[String]) = {
+        // dbtest
         Application.launch(classOf[GChart_], as:_*)
+    }
 
-    def test() = {
+    def dbtest() = {
         println("creating tables...")
         DB.init()
         println("inserting rows...")
