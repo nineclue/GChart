@@ -34,9 +34,9 @@ import javafx.util.StringConverter
 import javafx.application.Platform
 import javafx.scene.control.SelectionMode
 
-case class PatientRecord(chartno: String, male: Boolean, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
+case class PatientRecord(chartno: String, sex: String, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
-    private val heightProperty = new SimpleDoubleProperty(height.getOrElse(0.0))
+    private val heightProperty = new SimpleStringProperty(height.getOrElse(0.0))
     private val weightProperty = new SimpleDoubleProperty(weight.getOrElse(0.0))
 
     def getIday() = idayProperty.get
@@ -239,42 +239,64 @@ object DataStage {
         val modifyMenu = Seq(Menu("수정", notModifiable, (_) => println("수정!!!")))
         pi.chartLabel.setOnContextMenuRequested(mkMenuHandler(modifyMenu))
 
-        pi.chartInput.setOnAction(new EventHandler[ActionEvent] {
-            def handle(e: ActionEvent) = {
-                loadPatient(pi)
-            }
-        })
+        pi.chartInput.setOnAction(mkEventHandler[ActionEvent](e => loadPatient(pi)))
 
-        def harvest() = PatientRecord(content(pi.chartInput), pi.maleButton.isSelected, pi.bdayInput.getValue, pi.idayInput.getValue, pi.heightInput.getText.toDoubleOption, pi.weightInput.getText.toDoubleOption)
-        pi.commitButton.setOnAction(mkEventHandler[ActionEvent](e => println(harvest())))
+        pi.commitButton.setOnAction(mkEventHandler[ActionEvent](e => saveAndGraph(pi)))
     }
+
+    private def saveAndGraph(pi: PatientInput) = {
+        val r = harvest(pi)
+        DB.put(r)
+        // table reload ?
+        loadPatient(pi)
+    }
+
+    private def harvest(pi: PatientInput) = 
+        PatientRecord(content(pi.chartInput), 
+            if (pi.maleButton.isSelected) "M" else "F", 
+            pi.bdayInput.getValue, pi.idayInput.getValue,
+            pi.heightInput.getText.toDoubleOption, 
+            pi.weightInput.getText.toDoubleOption)
 
     // 차트번호에서 Enter 치면 실행되는 루틴
     // 기존 기록 읽고 없으면 환자 기록 수정 가능 설정
     private def loadPatient(pi: PatientInput) = {
         val rs = DB.get(content(pi.chartInput))
+        // 처음 loading시는 새로운 자료를 입력 받는 걸로
+        // setPatientRelatedFields( -> updateControls)에서 fields update 함
         loadedRecord = None
         records.clear
         records.addAll(rs:_*)
-        setPatientRelatedFields(pi, rs.isEmpty)        
+        setPatientRelatedFields(pi, rs)        
     }
 
-    private def setPatientRelatedFields(pi: PatientInput, enable: Boolean) = {
+    private def setPatientRelatedFields(pi: PatientInput, records: Seq[PatientRecord]) = {
+        val enable = records.isEmpty
+        // println(s"${records.length} => $enable")
+        records.headOption.foreach(r => updateControls(pi, r, true))
         pi.maleButton.setDisable(!enable)
         pi.femaleButton.setDisable(!enable)
         pi.bdayInput.setEditable(enable)
         pi.bdayInput.setDisable(!enable)
+
+        //
+        pi.idayInput.setValue(LocalDate.now)
+        pi.heightInput.setText("")
+        pi.weightInput.setText("")
     }
 
-    private def updateControls(pi: PatientInput, r: PatientRecord) = {
-        if (r.male) pi.maleButton.setSelected(true) 
+    private def updateControls(pi: PatientInput, r: PatientRecord, basicOnly: Boolean) = {
+        if (r.sex == "M") pi.maleButton.setSelected(true) 
         else pi.femaleButton.setSelected(true)
 
         pi.bdayInput.setValue(r.bday)
-        pi.idayInput.setValue(r.iday)
 
-        r.height.foreach(h => pi.heightInput.setText(h.toString))
-        r.weight.foreach(w => pi.weightInput.setText(w.toString))
+        if (!basicOnly) {
+            pi.idayInput.setValue(r.iday)
+
+            pi.heightInput.setText(if (r.height.nonEmpty) r.height.get.toString else "")
+            pi.weightInput.setText(if (r.weight.nonEmpty) r.weight.get.toString else "")
+        }
     }
 
     private def tableSet(pi: PatientInput) = {
@@ -313,7 +335,7 @@ object DataStage {
         t.getSelectionModel.getSelectedIndices.addListener(
             new ListChangeListener[Integer] {
                 def onChanged(c: ListChangeListener.Change[_ <: Integer]) = {
-                    updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()))
+                    updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()), false)
                 }
             }
         )
@@ -352,16 +374,7 @@ object DataStage {
         val nums = raw"[0-9]+[.]?[0-9]*"
         def changed(obv: ObservableValue[_ <: String], ov: String, nv: String) = {
             if (!nv.matches(nums)) {
-                /*
-                val commas = Range(0, nv.length()).map(i => (i, nv(i))).withFilter({ case (_, ch) => ch == '.'}).map(_._1)
-                val t = if (commas.length >= 2) nv.take(commas(2)-1) else nv
-                println(t)
-                */
-                /*
-                println(s"BOOM! ${nv.split('.').length} - ${nv.split('.').mkString(":")}")
-                s.setText(nv.split('.').appended("").take(2).map(_.filter(ch => (ch >= '0' && ch <= '9'))).mkString("."))
-                */
-                s.setText(nv.init)
+                s.setText(nv.init)  // ignore last input
             }
         }
     }
@@ -369,9 +382,5 @@ object DataStage {
     private def setGridPos(n: Node, x: Int, y: Int) = {
         GridPane.setColumnIndex(n, x)
         GridPane.setRowIndex(n, y)
-    }
-    private def setPadSpace(p: HBox) = {
-        p.setSpacing(10)
-        p.setPadding(new Insets(3))
     }
 }

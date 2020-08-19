@@ -36,9 +36,6 @@ object DB {
     )
     """.update.run
 
-    private def sex(r: PatientRecord) = 
-        if (r.male) "M" else "F"
-
     def init() = {
         (createPerson, createMeasures).mapN(_ + _).transact(xa).unsafeRunSync
     }
@@ -56,7 +53,7 @@ object DB {
 
     def put(r: PatientRecord) = {
         val pinsert = sql"""
-        INSERT OR IGNORE INTO person VALUES (${r.chartno}, ${sex(r)}, ${r.bday})
+        INSERT OR IGNORE INTO person VALUES (${r.chartno}, ${r.sex}, ${r.bday})
         """.update.run
         val mupsert = sql"""
         INSERT INTO measures VALUES (${r.chartno}, ${r.iday}, ${r.height}, ${r.weight})
@@ -75,8 +72,8 @@ object DB {
 
     def changePerson(o: PatientRecord, n: PatientRecord) = {
         sql"""
-        UPDATE person SET chartno = ${o.chartno}, sex = ${sex(o)}, birthday = ${o.bday}
-        WHERE chartno = ${n.chartno}, sex = ${sex(n)}, birthday = ${n.bday}
+        UPDATE person SET chartno = ${o.chartno}, sex = ${o.sex}, birthday = ${o.bday}
+        WHERE chartno = ${n.chartno}, sex = ${n.sex}, birthday = ${n.bday}
         """.update.run.transact(xa).unsafeRunSync()
     }
 
