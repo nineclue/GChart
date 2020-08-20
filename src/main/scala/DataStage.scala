@@ -38,6 +38,10 @@ import javafx.scene.control.Alert.AlertType
 import javafx.scene.control.ButtonType
 
 case class PatientRecord(chartno: String, sex: String, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
+    val bmi: Option[Double] = height.flatMap(h => weight.map({ w =>
+        val hmeter = h / 100
+        w / (hmeter * hmeter)
+    }))
     private val idayProperty = new SimpleStringProperty(iday.toString)
     private val heightProperty = new SimpleStringProperty(height.map(_.toString).getOrElse(""))
     private val weightProperty = new SimpleStringProperty(weight.map(_.toString).getOrElse(""))
@@ -71,6 +75,7 @@ object CalendarConverter extends StringConverter[LocalDate] {
     def toString(d: LocalDate): String = s"${d.getYear}년 ${d.getMonthValue}월 ${d.getDayOfMonth}일"
 }
 
+import DataStage.DrawFunction
 trait PatientInput {
     val chartLabel: Label 
     val chartInput: TextField
@@ -94,17 +99,19 @@ trait PatientInput {
     val commitButton: Button
 
     val records: TableView[PatientRecord]
+    val drawFunction: DrawFunction
 }
 
 case class Menu(title: String, disable: () => Boolean, action: (ActionEvent) => Unit)
 
 object DataStage {
     type InputPane = (Pane, PatientInput)
+    type DrawFunction = Seq[PatientRecord] => Unit
     val bmiDefault = "N/A"
     val records = FXCollections.observableArrayList[PatientRecord]()
     var loadedRecord: Option[PatientRecord] = None
 
-    def inputPane(): InputPane = {
+    def inputPane(drawF: DrawFunction): InputPane = {
         val pi: PatientInput = new PatientInput {
             val chartLabel: Label = new Label("차트번호")
             val chartInput: TextField = new TextField()
@@ -127,6 +134,8 @@ object DataStage {
 
             val commitButton: Button = new Button("저장 및 그래프")
             val records: TableView[PatientRecord] = new TableView[PatientRecord]()
+
+            val drawFunction: DrawFunction = drawF
         }
 
         // put gridpane 
@@ -251,7 +260,8 @@ object DataStage {
         val r = harvest(pi)
         DB.put(r)
         // table reload ?
-        loadPatient(pi)
+        val rs = loadPatient(pi)
+        pi.drawFunction(rs)
     }
 
     private def harvest(pi: PatientInput) = 
@@ -263,7 +273,7 @@ object DataStage {
 
     // 차트번호에서 Enter 치면 실행되는 루틴
     // 기존 기록 읽고 없으면 환자 기록 수정 가능 설정
-    private def loadPatient(pi: PatientInput) = {
+    private def loadPatient(pi: PatientInput): Seq[PatientRecord] = {
         val rs = DB.get(content(pi.chartInput))
         // 처음 loading시는 새로운 자료를 입력 받는 걸로
         // setPatientRelatedFields( -> updateControls)에서 fields update 함
@@ -271,6 +281,7 @@ object DataStage {
         
         records.setAll(rs:_*)
         setPatientRelatedFields(pi, rs)        
+        rs
     }
 
     private def setPatientRelatedFields(pi: PatientInput, records: Seq[PatientRecord]) = {
@@ -340,6 +351,7 @@ object DataStage {
                 def onChanged(c: ListChangeListener.Change[_ <: Integer]) = {
                     while (c.next) {
                         if (c.wasAdded()) updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()), false)
+                        else println(s"ListChangeListener: $c")
                     }
                 }
             }

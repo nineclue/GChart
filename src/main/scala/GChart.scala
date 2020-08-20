@@ -9,8 +9,12 @@ import java.io.PrintWriter
 import javafx.scene.text.Font
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
-import javafx.scene.layout.HBox
+import javafx.scene.layout.{HBox, VBox}
 import java.time.LocalDate
+import javafx.scene.control.RadioButton
+import javafx.scene.control.ToggleGroup
+import javafx.geometry.Pos
+import javafx.scene.layout.TilePane
 
 object GChart {
     def main(as: Array[String]) = {
@@ -38,9 +42,16 @@ class GChart_ extends Application {
     val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
     val fsmall = Font.loadFont(getClass.getResourceAsStream("NanumMyeongjo.ttf"), 12)
     val chart = new Chart(stageWidth, stageHeight, Some(fsmall))
+    val hButton = new RadioButton("신장")
+    val wButton = new RadioButton("체중")
+    val bButton = new RadioButton("BMI")
+    val ctButtons = Seq(hButton, wButton, bButton)
+    val pButton = new RadioButton("Percentile")
+    val sButton = new RadioButton("SD")
+    val rtButtons = Seq(pButton, sButton)
 
     override def start(ps: Stage) = {
-        val root = new BorderPane(chart)
+        val root = new BorderPane()
         /*
         val l = new Label(s"배달의 민족 : Pi는 ${DB.test}입니다.")
         l.setFont(flarge)
@@ -49,12 +60,31 @@ class GChart_ extends Application {
         l.setMaxHeight(40)
         root.setBottom(l)
         */
-        val (bp, cs) = DataStage.inputPane()
+        val (bp, cs) = DataStage.inputPane(draw)
         root.setLeft(bp)
+
+        val ctypes = new ToggleGroup()
+        ctButtons.foreach(_.setToggleGroup(ctypes))
+        val rtypes = new ToggleGroup()
+        rtButtons.foreach(_.setToggleGroup(rtypes))
+
+        /*
+        val ctbox = new HBox(hButton, wButton, bButton)
+        ctbox.setSpacing(20)
+        ctbox.setAlignment(Pos.CENTER)
+        val rtbox = new HBox(pButton, sButton)
+        rtbox.setSpacing(20)
+        rtbox.setAlignment(Pos.CENTER)
+        root.setCenter(new VBox(chart, new HBox(ctbox, rtbox)))
+        */
+        val btnbox = new TilePane(50, 0, hButton, wButton, bButton, pButton, sButton)
+        root.setCenter(new VBox(chart, btnbox))
+        // root.setCenter(chart)
 
         val scene = new Scene(root, Color.WHITE)
         ps.setScene(scene)
         ps.setTitle("성장 곡선")
+        
         // ps.setMinWidth(stageWidth)
         // ps.setMinHeight(stageWidth)
         
@@ -75,12 +105,24 @@ class GChart_ extends Application {
         */
         ps.show
         // root.widthProperty().addListener(ne)
-        chart.draw(WeightChart, false, SD)
+        val dummy = Seq(PatientRecord("123", "M", LocalDate.of(1970,3,5), LocalDate.of(2020, 8, 11), Some(182), Some(83)))
+        chart.draw(WeightChart, true, SD) // , Seq(PatientRecord()))
         /*
         val ds = DataStage.apply(ps)
         ds.show()
         */
         // convertCSV()
+    }
+
+    def draw(rs: Seq[PatientRecord]) = {
+        val available = Calc.availableTypes(rs)
+        val combo = ctButtons.zip(available)
+        combo.foreach({ case ((btn, oct)) =>
+            btn.setDisable(oct.isEmpty)
+        })
+        combo.filterNot(_._1.isDisabled()).headOption.foreach({ case ((b, ct)) =>
+            b.setSelected(true)
+        })
     }
 
     def convertCSV() = {

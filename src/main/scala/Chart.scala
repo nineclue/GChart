@@ -3,11 +3,19 @@ import javafx.scene.text.Font
 import javafx.scene.text.Text
 import javafx.scene.paint.Color
 
-sealed trait ChartType
-case object HeightChart extends ChartType
-case object WeightChart extends ChartType
-case object BMIChart extends ChartType
+trait ChartFunction {
+    def draw(rs: Seq[PatientRecord]): Unit
+    def emphasize(i: Int): Unit
+}
 
+sealed trait ChartType {
+    val repr: String
+}
+case object HeightChart extends ChartType { val repr = "신장" }
+case object WeightChart extends ChartType { val repr = "체중" }
+case object BMIChart extends ChartType { val repr = "BMI" }
+
+// 표시문자, 참조선 그리기 여부, 강조 표시 여부
 case class Legend(repr: String, include: Boolean, emph: Boolean)
 
 sealed trait RefType {
@@ -42,13 +50,16 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
     private val xinset = width / 15
     private val yinset = height / 15
     private val padding = width / 100
+    
+    // 차트 Y축 범위 
     private val measureRange: Map[Tuple2[ChartType, Boolean], Tuple2[Int, Int]] = 
             Map((HeightChart, true) -> (80, 200), (HeightChart, false) -> (80, 180),
                 (WeightChart, true) -> (10, 110), (WeightChart, false) -> (10, 90),
                 (BMIChart, true) -> (12, 32), (BMIChart, false) -> (12, 31))
     private val (yearStart, yearEnd) = (3, 18)
     private val gc = getGraphicsContext2D()
-    private val maxLengendWidth = Percentile.legends.map(l => textSize(l.repr, gc.getFont)._1).max
+    font.foreach(f => gc.setFont(f))
+    private lazy val maxLengendWidth = Percentile.legends.map(l => textSize(l.repr, gc.getFont)._1).max
     private val bgAlpha = 0.3
 
     private def mapMaker(sfrom: Double, sto: Double, dfrom: Double, dto: Double)(v: Double): Double = 
@@ -168,8 +179,14 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         maps
     }
 
+    /*
     def draw(ctype: ChartType, male: Boolean, rtype: RefType) = {
         val cm = drawBase(ctype, male)
         drawRef(ctype, male, rtype, cm)
+    }
+    */
+
+    def draw(rs: Seq[PatientRecord]) = {
+
     }
 }
