@@ -6,6 +6,8 @@ import javafx.scene.paint.Color
 trait ChartFunction {
     def draw(rs: Seq[PatientRecord]): Unit
     def emphasize(i: Int): Unit
+    def getXInset(): Double
+    def getYInset(): Double
 }
 
 sealed trait ChartType {
@@ -44,6 +46,8 @@ object Chart {
     // type ChartInfo = Option[ChartMap] => Option[ChartMap]
 }
 
+// case class CButton(text: String, x: Double, y: Double, width: Double, height: Double) 
+
 case class Chart(width: Double, height: Double, font: Option[Font]) extends Canvas(width, height) {
     import Chart._
 
@@ -60,6 +64,18 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
     private val gc = getGraphicsContext2D()
     font.foreach(f => gc.setFont(f))
     private lazy val maxLengendWidth = Percentile.legends.map(l => textSize(l.repr, gc.getFont)._1).max
+    /*
+    private val buttons = {
+        val names = Seq(HeightChart, WeightChart, BMIChart).map(_.repr) ++ Seq("Percentile", "SD")
+    }
+    private val (buttonWidth, buttonHeight): (Double, Double) = {
+        val dims = buttonStrings.map(s => textSize(s, gc.getFont))
+        (dims.map(_._1).max + padding * 2, dims.map(_._2).max + padding * 2)
+    }
+    private val buttonPos = {
+        val relatives = Range(0, 3)
+    }
+    */
     private val bgAlpha = 0.3
 
     private def mapMaker(sfrom: Double, sto: Double, dfrom: Double, dto: Double)(v: Double): Double = 
@@ -79,11 +95,23 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         else fontSize
     }
 
+    /*
+    def drawButtons() = {
+        font.foreach(gc.setFont)
+        gc.setStroke(Color.BLACK)
+        buttonStrings.zipWithIndex.foreach({ case ((bs, i)) =>
+            gc.strokeRect(xinset + i * buttonWidth, yinset, buttonWidth, buttonHeight)
+        })
+    }
+    */
+
     def drawBase(ctype: ChartType, male: Boolean): ChartMap = {
         // val gc = getGraphicsContext2D()
         font.foreach(gc.setFont)
+        // drawButtons
         val (xstart, xend) = (xinset, width - xinset - maxLengendWidth - padding)
         val (ystart, yend) = (yinset, height - yinset)
+        // val (ystart, yend) = (yinset + buttonHeight + padding, height - yinset)
 
         // Y value range
         val valueRange = measureRange((ctype, male))
@@ -179,14 +207,14 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         maps
     }
 
-    /*
     def draw(ctype: ChartType, male: Boolean, rtype: RefType) = {
         val cm = drawBase(ctype, male)
         drawRef(ctype, male, rtype, cm)
     }
-    */
 
+    /*
     def draw(rs: Seq[PatientRecord]) = {
 
     }
+    */
 }

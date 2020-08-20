@@ -9,7 +9,7 @@ import java.io.PrintWriter
 import javafx.scene.text.Font
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
-import javafx.scene.layout.{HBox, VBox}
+import javafx.scene.layout.{HBox, VBox, AnchorPane}
 import java.time.LocalDate
 import javafx.scene.control.RadioButton
 import javafx.scene.control.ToggleGroup
@@ -38,7 +38,7 @@ object GChart {
 
 class GChart_ extends Application {
     val stageWidth = 800
-    val stageHeight = 800
+    val stageHeight = 600
     val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
     val fsmall = Font.loadFont(getClass.getResourceAsStream("NanumMyeongjo.ttf"), 12)
     val chart = new Chart(stageWidth, stageHeight, Some(fsmall))
@@ -68,17 +68,20 @@ class GChart_ extends Application {
         val rtypes = new ToggleGroup()
         rtButtons.foreach(_.setToggleGroup(rtypes))
 
-        /*
         val ctbox = new HBox(hButton, wButton, bButton)
         ctbox.setSpacing(20)
         ctbox.setAlignment(Pos.CENTER)
         val rtbox = new HBox(pButton, sButton)
         rtbox.setSpacing(20)
         rtbox.setAlignment(Pos.CENTER)
-        root.setCenter(new VBox(chart, new HBox(ctbox, rtbox)))
-        */
-        val btnbox = new TilePane(50, 0, hButton, wButton, bButton, pButton, sButton)
-        root.setCenter(new VBox(chart, btnbox))
+        val anchor = new AnchorPane(ctbox, rtbox)
+        val anchorinset = chart.width/15
+        AnchorPane.setLeftAnchor(ctbox, anchorinset)
+        AnchorPane.setRightAnchor(rtbox, anchorinset)
+        root.setCenter(new VBox(chart, anchor))
+
+        // val btnbox = new TilePane(50, 0, hButton, wButton, bButton, pButton, sButton)
+        // root.setCenter(new VBox(chart, btnbox))
         // root.setCenter(chart)
 
         val scene = new Scene(root, Color.WHITE)
