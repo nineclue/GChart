@@ -109,7 +109,7 @@ class GChart_ extends Application {
         ps.show
         // root.widthProperty().addListener(ne)
         val dummy = Seq(PatientRecord("123", "M", LocalDate.of(1970,3,5), LocalDate.of(2020, 8, 11), Some(182), Some(83)))
-        chart.draw(WeightChart, true, SD) // , Seq(PatientRecord()))
+        chart.draw(WeightChart, true, Percentile) // , Seq(PatientRecord()))
         /*
         val ds = DataStage.apply(ps)
         ds.show()
@@ -123,8 +123,10 @@ class GChart_ extends Application {
         combo.foreach({ case ((btn, oct)) =>
             btn.setDisable(oct.isEmpty)
         })
-        combo.filterNot(_._1.isDisabled()).headOption.foreach({ case ((b, ct)) =>
+        val select = combo.filterNot(_._1.isDisabled()).headOption
+        select.foreach({ case ((b, ct)) =>
             b.setSelected(true)
+            chart.draw(rs, ct, Percentile)
         })
     }
 
@@ -167,4 +169,6 @@ class GChart_ extends Application {
         */
     }
 
+    // setfont - root pane 이하 모든 children의 font 지정
+    def setFont() = ???
 }

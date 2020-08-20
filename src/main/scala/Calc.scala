@@ -4,6 +4,9 @@ object Calc {
     def ageInMonths(bday: LocalDate, mday: LocalDate) = 
         bday.until(mday).toTotalMonths()
 
+    def mkClipper(lower: Int, upper: Int)(v: Int) = 
+        (v max lower) min upper
+
     def availableTypes(rs: Seq[PatientRecord]): Seq[Option[ChartType]] = {
         val rset = rs.foldLeft(Set.empty[ChartType])({ case ((s, r)) =>
             val h = r.height.map(_ => HeightChart)

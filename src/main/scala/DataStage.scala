@@ -259,9 +259,10 @@ object DataStage {
     private def saveAndGraph(pi: PatientInput) = {
         val r = harvest(pi)
         DB.put(r)
-        // table reload ?
-        val rs = loadPatient(pi)
-        pi.drawFunction(rs)
+        
+        // val rs = loadPatient(pi)
+        // pi.drawFunction(rs)
+        loadPatient(pi)
     }
 
     private def harvest(pi: PatientInput) = 
@@ -280,7 +281,7 @@ object DataStage {
         loadedRecord = None
         
         records.setAll(rs:_*)
-        setPatientRelatedFields(pi, rs)        
+        setPatientRelatedFields(pi, rs)      
         rs
     }
 

@@ -4,18 +4,16 @@ import javafx.scene.text.Text
 import javafx.scene.paint.Color
 
 trait ChartFunction {
-    def draw(rs: Seq[PatientRecord]): Unit
+    def draw(rs: Seq[PatientRecord], ct: ChartType, rt: RefType): Unit
     def emphasize(i: Int): Unit
     def getXInset(): Double
     def getYInset(): Double
 }
 
-sealed trait ChartType {
-    val repr: String
-}
-case object HeightChart extends ChartType { val repr = "신장" }
-case object WeightChart extends ChartType { val repr = "체중" }
-case object BMIChart extends ChartType { val repr = "BMI" }
+sealed trait ChartType 
+case object HeightChart extends ChartType
+case object WeightChart extends ChartType
+case object BMIChart extends ChartType 
 
 // 표시문자, 참조선 그리기 여부, 강조 표시 여부
 case class Legend(repr: String, include: Boolean, emph: Boolean)
@@ -46,8 +44,6 @@ object Chart {
     // type ChartInfo = Option[ChartMap] => Option[ChartMap]
 }
 
-// case class CButton(text: String, x: Double, y: Double, width: Double, height: Double) 
-
 case class Chart(width: Double, height: Double, font: Option[Font]) extends Canvas(width, height) {
     import Chart._
 
@@ -61,22 +57,12 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
                 (WeightChart, true) -> (10, 110), (WeightChart, false) -> (10, 90),
                 (BMIChart, true) -> (12, 32), (BMIChart, false) -> (12, 31))
     private val (yearStart, yearEnd) = (3, 18)
+    private val ageClipper = Calc.mkClipper(yearStart * 12, yearEnd * 12 + 11)
     private val gc = getGraphicsContext2D()
     font.foreach(f => gc.setFont(f))
     private lazy val maxLengendWidth = Percentile.legends.map(l => textSize(l.repr, gc.getFont)._1).max
-    /*
-    private val buttons = {
-        val names = Seq(HeightChart, WeightChart, BMIChart).map(_.repr) ++ Seq("Percentile", "SD")
-    }
-    private val (buttonWidth, buttonHeight): (Double, Double) = {
-        val dims = buttonStrings.map(s => textSize(s, gc.getFont))
-        (dims.map(_._1).max + padding * 2, dims.map(_._2).max + padding * 2)
-    }
-    private val buttonPos = {
-        val relatives = Range(0, 3)
-    }
-    */
     private val bgAlpha = 0.3
+    private var records: Option[Seq[PatientRecord]] = None
 
     private def mapMaker(sfrom: Double, sto: Double, dfrom: Double, dto: Double)(v: Double): Double = 
         (v - sfrom) * (dto - dfrom) / (sto - sfrom) + dfrom
@@ -95,23 +81,11 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         else fontSize
     }
 
-    /*
-    def drawButtons() = {
-        font.foreach(gc.setFont)
-        gc.setStroke(Color.BLACK)
-        buttonStrings.zipWithIndex.foreach({ case ((bs, i)) =>
-            gc.strokeRect(xinset + i * buttonWidth, yinset, buttonWidth, buttonHeight)
-        })
-    }
-    */
-
     def drawBase(ctype: ChartType, male: Boolean): ChartMap = {
         // val gc = getGraphicsContext2D()
         font.foreach(gc.setFont)
-        // drawButtons
         val (xstart, xend) = (xinset, width - xinset - maxLengendWidth - padding)
         val (ystart, yend) = (yinset, height - yinset)
-        // val (ystart, yend) = (yinset + buttonHeight + padding, height - yinset)
 
         // Y value range
         val valueRange = measureRange((ctype, male))
@@ -207,14 +181,36 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         maps
     }
 
+    def drawMeasures(ctype: ChartType, cm: ChartMap) = {
+        records.foreach({ rs =>  // option[seq] -> seq
+            rs.foreach({ r => 
+                val mOption = ctype match {
+                    case HeightChart => r.height
+                    case WeightChart => r.weight
+                    case BMIChart => r.bmi
+                }
+                mOption.foreach({ v => 
+                    val am = ageClipper(Calc.ageInMonths(r.bday, r.iday))
+                    val x = cm._1(am)
+                    val y = cm._2(v)
+                    gc.fillOval(x, y, 5, 5)
+                })
+            })
+        })
+    }
+
     def draw(ctype: ChartType, male: Boolean, rtype: RefType) = {
         val cm = drawBase(ctype, male)
         drawRef(ctype, male, rtype, cm)
     }
 
-    /*
-    def draw(rs: Seq[PatientRecord]) = {
-
+    def draw(rs: Option[Seq[PatientRecord]], ctype: ChartType, rtype: RefType) = {
+        records = rs
+        val isMale = rs.headOption.map(_.sex == "M").getOrElse(true)
+        val cm = drawBase(c, isMale)
+        drawRef(ctype, isMale, rtype, cm)
+        rs.foreach({ _ =>
+            drawMeasures(ctype, cm)
+        })
     }
-    */
 }
