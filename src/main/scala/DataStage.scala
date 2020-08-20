@@ -33,6 +33,9 @@ import javafx.scene.input.KeyEvent
 import javafx.util.StringConverter
 import javafx.application.Platform
 import javafx.scene.control.SelectionMode
+import javafx.scene.control.Alert
+import javafx.scene.control.Alert.AlertType
+import javafx.scene.control.ButtonType
 
 case class PatientRecord(chartno: String, sex: String, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
     private val idayProperty = new SimpleStringProperty(iday.toString)
@@ -266,7 +269,6 @@ object DataStage {
         // setPatientRelatedFields( -> updateControls)에서 fields update 함
         loadedRecord = None
         
-        // pi.records.getSelectionModel().clearSelection()
         records.setAll(rs:_*)
         setPatientRelatedFields(pi, rs)        
     }
@@ -344,8 +346,19 @@ object DataStage {
         )
         
         def tableNotSelected() = t.getSelectionModel().isEmpty
-        val m1 = Seq(Menu("delete", tableNotSelected, (_) => println("delete")))
+        val m1 = Seq(Menu("delete", tableNotSelected, (_) => deleteRecord(pi)))
         t.setOnContextMenuRequested(mkMenuHandler(m1))
+    }
+
+    private def deleteRecord(pi: PatientInput) = {
+        val cno = content(pi.chartInput)
+        val iday = pi.idayInput.getValue()
+        val alert = new Alert(AlertType.CONFIRMATION, s"$iday 기록을 삭제합니다.", ButtonType.NO, ButtonType.OK)
+        val choice = alert.showAndWait()
+        if (choice.isPresent() && choice.get() == ButtonType.OK) {
+            DB.deleteMeasure(cno, iday)
+            loadPatient(pi)
+        }
     }
 
     private def mkEventHandler[A <: javafx.event.Event](action: A => Unit): EventHandler[A] = 

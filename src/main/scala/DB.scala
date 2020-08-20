@@ -66,7 +66,7 @@ object DB {
 
     def deleteMeasure(cno: String, iday: LocalDate) = {
         sql"""
-        DELETE FROM measures WHERE chartno = $cno AND measureday = $iday
+        DELETE FROM measures WHERE chartno = $cno AND measuredate = $iday
         """.update.run.transact(xa).unsafeRunSync
     }
 
