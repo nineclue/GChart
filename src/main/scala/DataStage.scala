@@ -265,8 +265,9 @@ object DataStage {
         // 처음 loading시는 새로운 자료를 입력 받는 걸로
         // setPatientRelatedFields( -> updateControls)에서 fields update 함
         loadedRecord = None
-        records.clear
-        records.addAll(rs:_*)
+        
+        // pi.records.getSelectionModel().clearSelection()
+        records.setAll(rs:_*)
         setPatientRelatedFields(pi, rs)        
     }
 
@@ -335,7 +336,9 @@ object DataStage {
         t.getSelectionModel.getSelectedIndices.addListener(
             new ListChangeListener[Integer] {
                 def onChanged(c: ListChangeListener.Change[_ <: Integer]) = {
-                    updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()), false)
+                    while (c.next) {
+                        if (c.wasAdded()) updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()), false)
+                    }
                 }
             }
         )
@@ -383,4 +386,11 @@ object DataStage {
         GridPane.setColumnIndex(n, x)
         GridPane.setRowIndex(n, y)
     }
+
+    private def runLater(action: => Unit) = 
+        Platform.runLater(
+            new Runnable {
+                def run() = action               
+            }
+        )
 }
