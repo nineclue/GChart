@@ -158,20 +158,19 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
             case (BMIChart, SD) => BmiSD
         }
         // BMI 24~227 months, others 0 ~ 227 months
-        def xmod(i: Int) = if (ctype == BMIChart) i + 12 else i
+        def xmod(i: Int) = if (ctype == BMIChart) i - 24 else i
         val monthRange = Range(yearStart, yearEnd + 1).flatMap(y => Range(0, 12).map(y * 12 + _)) // :+ (yearEnd * 12 + 12)
         val values = refs.values(sexIndex)
         val refnums = values(monthRange.head).size
         monthRange.sliding(2, 1).foreach({ ms =>
-            if (ctype == BMIChart) println(s"${ms(0)} ${ms(1)} => ${xmod(ms(0))} ${xmod(ms(1))}")
-            val (x1, x2) = (xmap(xmod(ms(0))), xmap(xmod(ms(1))))
+            val (x1, x2) = (xmap(ms(0)), xmap(ms(1)))
             gc.setGlobalAlpha(bgAlpha)
             Range(0, refnums).zip(rtype.legends) foreach({ case ((ri, l)) =>
                 if (l.include) {
                     if (l.emph) gc.setLineWidth(2.0)
                     else gc.setLineWidth(1)
-                    gc.strokeLine(x1, ymap(values(ms(0))(ri)), 
-                                x2, ymap(values(ms(1))(ri)))
+                    gc.strokeLine(x1, ymap(values(xmod(ms(0)))(ri)), 
+                                x2, ymap(values(xmod(ms(1)))(ri)))
                 }
             })
             // gc.setLineWidth(1.0)
