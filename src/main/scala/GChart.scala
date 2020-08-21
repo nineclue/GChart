@@ -15,6 +15,7 @@ import javafx.scene.control.RadioButton
 import javafx.scene.control.ToggleGroup
 import javafx.geometry.Pos
 import javafx.scene.layout.TilePane
+import javafx.event.ActionEvent
 
 object GChart {
     def main(as: Array[String]) = {
@@ -41,32 +42,31 @@ class GChart_ extends Application {
     val stageHeight = 600
     val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
     val fsmall = Font.loadFont(getClass.getResourceAsStream("NanumMyeongjo.ttf"), 12)
-    val chart = new Chart(stageWidth, stageHeight, Some(fsmall))
+    val chart = new Chart(stageWidth - stageWidth / 3, stageHeight, Some(fsmall))
     val hButton = new RadioButton("신장")
     val wButton = new RadioButton("체중")
     val bButton = new RadioButton("BMI")
+    val ctypes = new ToggleGroup()
     val ctButtons = Seq(hButton, wButton, bButton)
+    ctButtons.foreach(_.setToggleGroup(ctypes))
+
     val pButton = new RadioButton("Percentile")
     val sButton = new RadioButton("SD")
+    val rtypes = new ToggleGroup()
     val rtButtons = Seq(pButton, sButton)
+    rtButtons.foreach(_.setToggleGroup(rtypes))
 
     override def start(ps: Stage) = {
-        val root = new BorderPane()
         /*
-        val l = new Label(s"배달의 민족 : Pi는 ${DB.test}입니다.")
-        l.setFont(flarge)
-        l.setMinHeight(40)
-        l.setPrefHeight(40)
-        l.setMaxHeight(40)
-        root.setBottom(l)
+        Seq(HeightPercentile, HeightSD, WeightPercentile, WeightSD, BmiPercentile, BmiSD).map(_.values).foreach(vs =>
+            println(vs(0).length, vs(1).length)
+        )
         */
-        val (bp, cs) = DataStage.inputPane(draw)
+        val root = new BorderPane()
+        val (bp, cs) = DataStage.inputPane(drawChart)
         root.setLeft(bp)
 
-        val ctypes = new ToggleGroup()
-        ctButtons.foreach(_.setToggleGroup(ctypes))
-        val rtypes = new ToggleGroup()
-        rtButtons.foreach(_.setToggleGroup(rtypes))
+        prepareRadioButtons
 
         val ctbox = new HBox(hButton, wButton, bButton)
         ctbox.setSpacing(20)
@@ -74,22 +74,20 @@ class GChart_ extends Application {
         val rtbox = new HBox(pButton, sButton)
         rtbox.setSpacing(20)
         rtbox.setAlignment(Pos.CENTER)
+        pButton.setSelected(true)
+
         val anchor = new AnchorPane(ctbox, rtbox)
         val anchorinset = chart.width/15
         AnchorPane.setLeftAnchor(ctbox, anchorinset)
         AnchorPane.setRightAnchor(rtbox, anchorinset)
         root.setCenter(new VBox(chart, anchor))
 
-        // val btnbox = new TilePane(50, 0, hButton, wButton, bButton, pButton, sButton)
-        // root.setCenter(new VBox(chart, btnbox))
-        // root.setCenter(chart)
-
         val scene = new Scene(root, Color.WHITE)
         ps.setScene(scene)
         ps.setTitle("성장 곡선")
         
-        // ps.setMinWidth(stageWidth)
-        // ps.setMinHeight(stageWidth)
+        ps.setMinWidth(stageWidth)
+        ps.setMinHeight(stageWidth)
         
         /*
         root.prefHeightProperty().bind(scene.heightProperty());
@@ -107,28 +105,64 @@ class GChart_ extends Application {
         )
         */
         ps.show
+
+        chart.draw(Seq.empty, HeightChart, Percentile, false)
         // root.widthProperty().addListener(ne)
         val dummy = Seq(PatientRecord("123", "M", LocalDate.of(1970,3,5), LocalDate.of(2020, 8, 11), Some(182), Some(83)))
-        chart.draw(WeightChart, true, Percentile) // , Seq(PatientRecord()))
-        /*
-        val ds = DataStage.apply(ps)
-        ds.show()
-        */
         // convertCSV()
     }
 
-    def draw(rs: Seq[PatientRecord]) = {
-        val available = Calc.availableTypes(rs)
-        val combo = ctButtons.zip(available)
+    private def prepareRadioButtons(): AnchorPane = {
+        val ctbox = new HBox(hButton, wButton, bButton)
+        ctbox.setSpacing(20)
+        ctbox.setAlignment(Pos.CENTER)
+        val rtbox = new HBox(pButton, sButton)
+        rtbox.setSpacing(20)
+        rtbox.setAlignment(Pos.CENTER)
+        pButton.setSelected(true)
+
+        (ctButtons ++ rtButtons).foreach(b =>
+            b.setOnAction(DataStage.mkEventHandler[ActionEvent](e => 
+                chart.draw(Seq.empty, getChartType.getOrElse(HeightChart), getReferenceType.getOrElse(Percentile), false)
+            ))
+        )
+
+        val anchor = new AnchorPane(ctbox, rtbox)
+        val anchorinset = chart.width/15
+        AnchorPane.setLeftAnchor(ctbox, anchorinset)
+        AnchorPane.setRightAnchor(rtbox, anchorinset)
+        anchor
+    }
+
+    def drawChart(rs: Seq[PatientRecord] = Seq.empty) = {
+        val available: Seq[Option[ChartType]] = Calc.availableTypes(rs)
+        val combo: Seq[(RadioButton, Option[ChartType])] = ctButtons.zip(available)
         combo.foreach({ case ((btn, oct)) =>
             btn.setDisable(oct.isEmpty)
         })
         val select = combo.filterNot(_._1.isDisabled()).headOption
-        select.foreach({ case ((b, ct)) =>
+        select.foreach({ case ((b, ctype)) =>
             b.setSelected(true)
-            chart.draw(rs, ct, Percentile)
+        })
+        chart.draw(rs, select.flatMap(_._2).getOrElse(HeightChart), 
+            getReferenceType().getOrElse(Percentile), true)
+    }
+
+    private def getChartType(): Option[ChartType] = {
+        ctButtons.find(_.isSelected).map(_ match {
+            case `hButton` => HeightChart
+            case `wButton` => WeightChart
+            case `bButton` => BMIChart
         })
     }
+
+    private def getReferenceType(): Option[RefType] = {
+        rtButtons.find(_.isSelected).map(_ match {
+            case `pButton` => Percentile
+            case `sButton` => SD
+        })
+    }
+
 
     def convertCSV() = {
         def helper(l: String) = {

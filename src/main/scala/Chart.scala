@@ -3,13 +3,6 @@ import javafx.scene.text.Font
 import javafx.scene.text.Text
 import javafx.scene.paint.Color
 
-trait ChartFunction {
-    def draw(rs: Seq[PatientRecord], ct: ChartType, rt: RefType): Unit
-    def emphasize(i: Int): Unit
-    def getXInset(): Double
-    def getYInset(): Double
-}
-
 sealed trait ChartType 
 case object HeightChart extends ChartType
 case object WeightChart extends ChartType
@@ -50,19 +43,25 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
     private val xinset = width / 15
     private val yinset = height / 15
     private val padding = width / 100
-    
+
+    private val bgColor = Color.WHEAT
+    private val lineColor = Color.BLACK
+    private val legendColor = Color.BLACK
+    private val maleRefColor = Color.BLUE
+    private val femaleRefColor = Color.RED
+
     // 차트 Y축 범위 
     private val measureRange: Map[Tuple2[ChartType, Boolean], Tuple2[Int, Int]] = 
             Map((HeightChart, true) -> (80, 200), (HeightChart, false) -> (80, 180),
                 (WeightChart, true) -> (10, 110), (WeightChart, false) -> (10, 90),
                 (BMIChart, true) -> (12, 32), (BMIChart, false) -> (12, 31))
     private val (yearStart, yearEnd) = (3, 18)
-    private val ageClipper = Calc.mkClipper(yearStart * 12, yearEnd * 12 + 11)
+    private val ageClipper = Calc.mkClipper(yearStart * 12, yearEnd * 12 + 11) _
     private val gc = getGraphicsContext2D()
     font.foreach(f => gc.setFont(f))
     private lazy val maxLengendWidth = Percentile.legends.map(l => textSize(l.repr, gc.getFont)._1).max
     private val bgAlpha = 0.3
-    private var records: Option[Seq[PatientRecord]] = None
+    private var records: Seq[PatientRecord] = Seq.empty
 
     private def mapMaker(sfrom: Double, sto: Double, dfrom: Double, dto: Double)(v: Double): Double = 
         (v - sfrom) * (dto - dfrom) / (sto - sfrom) + dfrom
@@ -83,18 +82,21 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
 
     def drawBase(ctype: ChartType, male: Boolean): ChartMap = {
         // val gc = getGraphicsContext2D()
+        gc.setStroke(lineColor)
+        gc.setFill(legendColor)
         font.foreach(gc.setFont)
         val (xstart, xend) = (xinset, width - xinset - maxLengendWidth - padding)
         val (ystart, yend) = (yinset, height - yinset)
 
         // Y value range
         val valueRange = measureRange((ctype, male))
-        val ylabelSize = textSize(valueRange._2.toString, gc.getFont)
+        val ylabelSize = textSize(valueRange._2.toString, gc.getFont)  // assume last legend is widest
         val xAxisStart = xstart + ylabelSize._1 + padding
         // pixel width of 1 year
         val yearGap: Double = (xend - xAxisStart) / (yearEnd - yearStart + 1)
         val monthInterval = Seq(2, 3, 4, 6).find(i => yearGap / (12 / i) >= 3).getOrElse(12)
         val monthRange = Range(yearStart, yearEnd + 1).flatMap(y => Range(0, 12/monthInterval).map(y * 12 + _ * monthInterval)) :+ ((yearEnd + 1)* 12)
+        println(s"${monthRange.head} ~ ${monthRange.last}")
         val monthMap = mapMaker(monthRange.head, monthRange.last, xAxisStart, xend) _
         gc.setGlobalAlpha(bgAlpha)
         gc.setStroke(Color.BLACK)
@@ -139,9 +141,10 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
 
     def drawRef(ctype: ChartType, male: Boolean, rtype: RefType, maps: ChartMap): ChartMap = {
         // val gc = getGraphicsContext2D()
-        val colors = Seq(Color.BLUE, Color.RED)
+        val colors = Seq(maleRefColor, femaleRefColor)
         val sexIndex = if (male) 0 else 1
         gc.setStroke(colors(sexIndex))
+        gc.setFill(legendColor)
         gc.setGlobalAlpha(bgAlpha)
         font.foreach(f => gc.setFont(f))
         val (xmap, ymap) = maps
@@ -154,11 +157,14 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
             case (BMIChart, Percentile) => BmiPercentile
             case (BMIChart, SD) => BmiSD
         }
+        // BMI 24~227 months, others 0 ~ 227 months
+        def xmod(i: Int) = if (ctype == BMIChart) i + 12 else i
         val monthRange = Range(yearStart, yearEnd + 1).flatMap(y => Range(0, 12).map(y * 12 + _)) // :+ (yearEnd * 12 + 12)
         val values = refs.values(sexIndex)
         val refnums = values(monthRange.head).size
         monthRange.sliding(2, 1).foreach({ ms =>
-            val (x1, x2) = (xmap(ms(0)), xmap(ms(1)))
+            if (ctype == BMIChart) println(s"${ms(0)} ${ms(1)} => ${xmod(ms(0))} ${xmod(ms(1))}")
+            val (x1, x2) = (xmap(xmod(ms(0))), xmap(xmod(ms(1))))
             gc.setGlobalAlpha(bgAlpha)
             Range(0, refnums).zip(rtype.legends) foreach({ case ((ri, l)) =>
                 if (l.include) {
@@ -182,35 +188,37 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
     }
 
     def drawMeasures(ctype: ChartType, cm: ChartMap) = {
-        records.foreach({ rs =>  // option[seq] -> seq
-            rs.foreach({ r => 
-                val mOption = ctype match {
-                    case HeightChart => r.height
-                    case WeightChart => r.weight
-                    case BMIChart => r.bmi
-                }
-                mOption.foreach({ v => 
-                    val am = ageClipper(Calc.ageInMonths(r.bday, r.iday))
-                    val x = cm._1(am)
-                    val y = cm._2(v)
-                    gc.fillOval(x, y, 5, 5)
-                })
+        records.foreach({ r => 
+            val mOption = ctype match {
+                case HeightChart => r.height
+                case WeightChart => r.weight
+                case BMIChart => r.bmi
+            }
+            mOption.foreach({ v => 
+                val am = ageClipper(Calc.ageInMonths(r.bday, r.iday))
+                val x = cm._1(am)
+                val y = cm._2(v)
+                gc.fillOval(x, y, 5, 5)
             })
         })
     }
 
-    def draw(ctype: ChartType, male: Boolean, rtype: RefType) = {
-        val cm = drawBase(ctype, male)
-        drawRef(ctype, male, rtype, cm)
+    def draw(rss: Seq[PatientRecord], ctype: ChartType, rtype: RefType, clearRecords: Boolean) = {
+        // rss empty인 경우 clearRecords flag이 설정되어야만 지움 
+        // radiobutton에서 type만 바꾸는 경우는 clearRecords를 false로
+        if (rss.isEmpty) {
+            if (clearRecords) records = rss
+        } else 
+            records = rss
+        val isMale = records.headOption.map(_.sex).getOrElse("M") == "M"
+        clearCanvas()
+        val cm = drawBase(ctype, isMale)
+        drawRef(ctype, isMale, rtype, cm)
+        drawMeasures(ctype, cm)
     }
 
-    def draw(rs: Option[Seq[PatientRecord]], ctype: ChartType, rtype: RefType) = {
-        records = rs
-        val isMale = rs.headOption.map(_.sex == "M").getOrElse(true)
-        val cm = drawBase(c, isMale)
-        drawRef(ctype, isMale, rtype, cm)
-        rs.foreach({ _ =>
-            drawMeasures(ctype, cm)
-        })
+    def clearCanvas() = {
+        gc.setFill(Color.WHITESMOKE)
+        gc.fillRect(0, 0, width, height)
     }
 }

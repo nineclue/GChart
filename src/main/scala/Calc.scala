@@ -4,7 +4,7 @@ object Calc {
     def ageInMonths(bday: LocalDate, mday: LocalDate) = 
         bday.until(mday).toTotalMonths()
 
-    def mkClipper(lower: Int, upper: Int)(v: Int) = 
+    def mkClipper(lower: Long, upper: Long)(v: Long) = 
         (v max lower) min upper
 
     def availableTypes(rs: Seq[PatientRecord]): Seq[Option[ChartType]] = {

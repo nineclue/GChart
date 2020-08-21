@@ -260,8 +260,6 @@ object DataStage {
         val r = harvest(pi)
         DB.put(r)
         
-        // val rs = loadPatient(pi)
-        // pi.drawFunction(rs)
         loadPatient(pi)
     }
 
@@ -274,15 +272,15 @@ object DataStage {
 
     // 차트번호에서 Enter 치면 실행되는 루틴
     // 기존 기록 읽고 없으면 환자 기록 수정 가능 설정
-    private def loadPatient(pi: PatientInput): Seq[PatientRecord] = {
+    private def loadPatient(pi: PatientInput) = {
         val rs = DB.get(content(pi.chartInput))
         // 처음 loading시는 새로운 자료를 입력 받는 걸로
         // setPatientRelatedFields( -> updateControls)에서 fields update 함
         loadedRecord = None
         
         records.setAll(rs:_*)
-        setPatientRelatedFields(pi, rs)      
-        rs
+        setPatientRelatedFields(pi, rs)
+        pi.drawFunction(rs)
     }
 
     private def setPatientRelatedFields(pi: PatientInput, records: Seq[PatientRecord]) = {
@@ -375,7 +373,7 @@ object DataStage {
         }
     }
 
-    private def mkEventHandler[A <: javafx.event.Event](action: A => Unit): EventHandler[A] = 
+    def mkEventHandler[A <: javafx.event.Event](action: A => Unit): EventHandler[A] = 
         new EventHandler[A] {
             def handle(e: A) = action(e)
         }
