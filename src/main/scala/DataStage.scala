@@ -75,7 +75,7 @@ object CalendarConverter extends StringConverter[LocalDate] {
     def toString(d: LocalDate): String = s"${d.getYear}년 ${d.getMonthValue}월 ${d.getDayOfMonth}일"
 }
 
-import DataStage.DrawFunction
+import DataStage.{DrawFunction, PointFunction}
 trait PatientInput {
     val chartLabel: Label 
     val chartInput: TextField
@@ -100,6 +100,7 @@ trait PatientInput {
 
     val records: TableView[PatientRecord]
     val drawFunction: DrawFunction
+    val pointFunction: PointFunction
 }
 
 case class Menu(title: String, disable: () => Boolean, action: (ActionEvent) => Unit)
@@ -107,11 +108,12 @@ case class Menu(title: String, disable: () => Boolean, action: (ActionEvent) => 
 object DataStage {
     type InputPane = (Pane, PatientInput)
     type DrawFunction = Seq[PatientRecord] => Unit
+    type PointFunction = Int => Unit
     val bmiDefault = "N/A"
     val records = FXCollections.observableArrayList[PatientRecord]()
     var loadedRecord: Option[PatientRecord] = None
 
-    def inputPane(drawF: DrawFunction): InputPane = {
+    def inputPane(drawF: DrawFunction, pointF: PointFunction): InputPane = {
         val pi: PatientInput = new PatientInput {
             val chartLabel: Label = new Label("차트번호")
             val chartInput: TextField = new TextField()
@@ -136,6 +138,7 @@ object DataStage {
             val records: TableView[PatientRecord] = new TableView[PatientRecord]()
 
             val drawFunction: DrawFunction = drawF
+            val pointFunction: PointFunction = pointF
         }
 
         // put gridpane 
@@ -352,6 +355,9 @@ object DataStage {
                         println(s"ListChangeListener: $c")
                         if (c.wasAdded()) 
                             updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()), false)
+                    }
+                    if (c.getList.size == 1) {
+                        pi.pointFunction(c.getList.get(0))
                     }
                 }
             }

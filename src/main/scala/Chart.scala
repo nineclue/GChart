@@ -44,11 +44,12 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
     private val yinset = height / 15
     private val padding = width / 100
 
-    private val bgColor = Color.WHEAT
+    private val bgColor = Color.WHITESMOKE
     private val lineColor = Color.BLACK
     private val legendColor = Color.BLACK
     private val maleRefColor = Color.BLUE
     private val femaleRefColor = Color.RED
+    private val pointColor = Color.RED
 
     // 차트 Y축 범위 
     private val measureRange: Map[Tuple2[ChartType, Boolean], Tuple2[Int, Int]] = 
@@ -62,6 +63,7 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
     private lazy val maxLengendWidth = Percentile.legends.map(l => textSize(l.repr, gc.getFont)._1).max
     private val bgAlpha = 0.3
     private var records: Seq[PatientRecord] = Seq.empty
+    private var chartMap: ChartMap = _
 
     private def mapMaker(sfrom: Double, sto: Double, dfrom: Double, dto: Double)(v: Double): Double = 
         (v - sfrom) * (dto - dfrom) / (sto - sfrom) + dfrom
@@ -139,7 +141,7 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         (monthMap, valueMap)
     }
 
-    def drawRef(ctype: ChartType, male: Boolean, rtype: RefType, maps: ChartMap): ChartMap = {
+    def drawRef(ctype: ChartType, male: Boolean, rtype: RefType) = {
         // val gc = getGraphicsContext2D()
         val colors = Seq(maleRefColor, femaleRefColor)
         val sexIndex = if (male) 0 else 1
@@ -147,7 +149,7 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         gc.setFill(legendColor)
         gc.setGlobalAlpha(bgAlpha)
         font.foreach(f => gc.setFont(f))
-        val (xmap, ymap) = maps
+        val (xmap, ymap) = chartMap
 
         val refs: Measures = (ctype, rtype) match {
             case (HeightChart, Percentile) => HeightPercentile
@@ -183,10 +185,11 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
                 }
             })
         })
-        maps
     }
 
-    def drawMeasures(ctype: ChartType, cm: ChartMap) = {
+    def drawMeasures(ctype: ChartType) = {
+        gc.setFill(pointColor)
+        val pointDiameter = 10
         records.foreach({ r => 
             val mOption = ctype match {
                 case HeightChart => r.height
@@ -195,9 +198,9 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
             }
             mOption.foreach({ v => 
                 val am = ageClipper(Calc.ageInMonths(r.bday, r.iday))
-                val x = cm._1(am)
-                val y = cm._2(v)
-                gc.fillOval(x, y, 5, 5)
+                val x = chartMap._1(am)
+                val y = chartMap._2(v)
+                gc.fillOval(x - pointDiameter / 2, y - pointDiameter / 2, pointDiameter, pointDiameter)
             })
         })
     }
@@ -211,13 +214,13 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
             records = rss
         val isMale = records.headOption.map(_.sex).getOrElse("M") == "M"
         clearCanvas()
-        val cm = drawBase(ctype, isMale)
-        drawRef(ctype, isMale, rtype, cm)
-        drawMeasures(ctype, cm)
+        chartMap = drawBase(ctype, isMale)
+        drawRef(ctype, isMale, rtype)
+        drawMeasures(ctype)
     }
 
     def clearCanvas() = {
-        gc.setFill(Color.WHITESMOKE)
+        gc.setFill(bgColor)
         gc.fillRect(0, 0, width, height)
     }
 }

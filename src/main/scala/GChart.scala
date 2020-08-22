@@ -63,7 +63,7 @@ class GChart_ extends Application {
         )
         */
         val root = new BorderPane()
-        val (bp, cs) = DataStage.inputPane(drawChart)
+        val (bp, cs) = DataStage.inputPane(drawChart, point)
         root.setLeft(bp)
 
         prepareRadioButtons
@@ -147,6 +147,8 @@ class GChart_ extends Application {
         chart.draw(rs, select.flatMap(_._2).getOrElse(HeightChart), 
             getReferenceType().getOrElse(Percentile), true)
     }
+
+    def point(i: Int) = println(s"Point! : $i")
 
     private def getChartType(): Option[ChartType] = {
         ctButtons.find(_.isSelected).map(_ match {
