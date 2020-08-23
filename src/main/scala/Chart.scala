@@ -2,6 +2,9 @@ import javafx.scene.canvas.Canvas
 import javafx.scene.text.Font
 import javafx.scene.text.Text
 import javafx.scene.paint.Color
+import javafx.scene.shape.Circle
+import javafx.scene.layout.StackPane
+import javafx.scene.Group
 
 sealed trait ChartType 
 case object HeightChart extends ChartType
@@ -35,9 +38,21 @@ object Chart {
     type MapF = Double => Double
     type ChartMap = Tuple2[MapF, MapF]
     // type ChartInfo = Option[ChartMap] => Option[ChartMap]
+    val circleRadius = 7
+
+    def apply(width: Double, height: Double, font: Option[Font]): (Group, Chart) = {
+        // val pane = new StackPane()
+        val group = new Group()
+        val point = new Circle(circleRadius)
+        point.setFill(Color.GREEN)
+        val chart = new Chart(width, height, point, font)
+        group.getChildren.addAll(chart, point)
+        group.setAutoSizeChildren(false)
+        (group, chart)
+    }
 }
 
-case class Chart(width: Double, height: Double, font: Option[Font]) extends Canvas(width, height) {
+case class Chart(width: Double, height: Double, point: Circle, font: Option[Font]) extends Canvas(width, height) {
     import Chart._
 
     private val xinset = width / 15
@@ -98,7 +113,6 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         val yearGap: Double = (xend - xAxisStart) / (yearEnd - yearStart + 1)
         val monthInterval = Seq(2, 3, 4, 6).find(i => yearGap / (12 / i) >= 3).getOrElse(12)
         val monthRange = Range(yearStart, yearEnd + 1).flatMap(y => Range(0, 12/monthInterval).map(y * 12 + _ * monthInterval)) :+ ((yearEnd + 1)* 12)
-        println(s"${monthRange.head} ~ ${monthRange.last}")
         val monthMap = mapMaker(monthRange.head, monthRange.last, xAxisStart, xend) _
         gc.setGlobalAlpha(bgAlpha)
         gc.setStroke(Color.BLACK)
@@ -218,6 +232,25 @@ case class Chart(width: Double, height: Double, font: Option[Font]) extends Canv
         drawRef(ctype, isMale, rtype)
         drawMeasures(ctype)
     }
+
+    def emphasizeMeasure(i: Int, ctype: ChartType, rType: RefType) = {
+        val r = records(i)
+        if (records.nonEmpty && i < records.length) {
+            val vOption = ctype match {
+                case HeightChart => r.height
+                case WeightChart => r.weight
+                case BMIChart => r.bmi
+            }
+            vOption.foreach { v =>
+                val am = ageClipper(Calc.ageInMonths(r.bday, r.iday))
+                // println(s"EMf : ${records.length}($i) => $r, $ctype, $rType, $vOption: $am, $v (${chartMap._1(am)}, ${chartMap._2(v)}")
+                point.setCenterX(chartMap._1(am))
+                point.setCenterY(chartMap._2(v))
+            }
+        }
+    }
+
+    def setPointInvisible() = point.setOpacity(0)
 
     def clearCanvas() = {
         gc.setFill(bgColor)

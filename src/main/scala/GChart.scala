@@ -16,6 +16,7 @@ import javafx.scene.control.ToggleGroup
 import javafx.geometry.Pos
 import javafx.scene.layout.TilePane
 import javafx.event.ActionEvent
+import javafx.scene.paint.Color
 
 object GChart {
     def main(as: Array[String]) = {
@@ -42,7 +43,8 @@ class GChart_ extends Application {
     val stageHeight = 600
     val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
     val fsmall = Font.loadFont(getClass.getResourceAsStream("NanumMyeongjo.ttf"), 12)
-    val chart = new Chart(stageWidth - stageWidth / 3, stageHeight, Some(fsmall))
+    // val chart = new Chart(stageWidth - stageWidth / 3, stageHeight, point, Some(fsmall))
+    val (cgroup, chart) = Chart(stageWidth - stageWidth / 3, stageHeight, Some(fsmall))
     val hButton = new RadioButton("신장")
     val wButton = new RadioButton("체중")
     val bButton = new RadioButton("BMI")
@@ -80,7 +82,7 @@ class GChart_ extends Application {
         val anchorinset = chart.width/15
         AnchorPane.setLeftAnchor(ctbox, anchorinset)
         AnchorPane.setRightAnchor(rtbox, anchorinset)
-        root.setCenter(new VBox(chart, anchor))
+        root.setCenter(new VBox(cgroup, anchor))
 
         val scene = new Scene(root, Color.WHITE)
         ps.setScene(scene)
@@ -148,7 +150,9 @@ class GChart_ extends Application {
             getReferenceType().getOrElse(Percentile), true)
     }
 
-    def point(i: Int) = println(s"Point! : $i")
+    def point(i: Int) = {
+        chart.emphasizeMeasure(i, getChartType().get, getReferenceType().get)
+    }
 
     private def getChartType(): Option[ChartType] = {
         ctButtons.find(_.isSelected).map(_ match {
