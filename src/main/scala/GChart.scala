@@ -39,12 +39,11 @@ object GChart {
 }
 
 class GChart_ extends Application {
-    val stageWidth = 800
+    val stageWidth = 600
     val stageHeight = 600
     val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
     val fsmall = Font.loadFont(getClass.getResourceAsStream("NanumMyeongjo.ttf"), 12)
-    // val chart = new Chart(stageWidth - stageWidth / 3, stageHeight, point, Some(fsmall))
-    val (cgroup, chart) = Chart(stageWidth - stageWidth / 3, stageHeight, Some(fsmall))
+    val (cgroup, chart) = Chart(stageWidth, stageHeight, Some(fsmall))
     val hButton = new RadioButton("신장")
     val wButton = new RadioButton("체중")
     val bButton = new RadioButton("BMI")
@@ -59,11 +58,6 @@ class GChart_ extends Application {
     rtButtons.foreach(_.setToggleGroup(rtypes))
 
     override def start(ps: Stage) = {
-        /*
-        Seq(HeightPercentile, HeightSD, WeightPercentile, WeightSD, BmiPercentile, BmiSD).map(_.values).foreach(vs =>
-            println(vs(0).length, vs(1).length)
-        )
-        */
         val root = new BorderPane()
         val (bp, cs) = DataStage.inputPane(drawChart, point)
         root.setLeft(bp)
@@ -82,35 +76,34 @@ class GChart_ extends Application {
         val anchorinset = chart.width/15
         AnchorPane.setLeftAnchor(ctbox, anchorinset)
         AnchorPane.setRightAnchor(rtbox, anchorinset)
-        root.setCenter(new VBox(cgroup, anchor))
+        val centralBox = new VBox(cgroup, anchor)
+        root.setCenter(centralBox)
 
         val scene = new Scene(root, Color.WHITE)
         ps.setScene(scene)
         ps.setTitle("성장 곡선")
         
-        ps.setMinWidth(stageWidth)
-        ps.setMinHeight(stageWidth)
-        
         /*
-        root.prefHeightProperty().bind(scene.heightProperty());
-        root.prefWidthProperty().bind(scene.widthProperty());
-        */
-        scene.heightProperty().addListener(new ChangeListener[Number] {
-            def changed(v: ObservableValue[_ <: Number] , ov: Number, nv: Number) = {
-                // println(nv.doubleValue())
-                
-            }
-        })
-        /*
-        scene.widthProperty().addListener(
+        val sizeChangeListener = new ChangeListener[Number] {
+            var startTime: Option[Long] = None
 
-        )
+            def changed(v: ObservableValue[_ <: Number], ov: Number, nv: Number) = {
+                println(s"${nv.doubleValue} ${centralBox.getWidth}, ${centralBox.getHeight}")
+                // chart.setWidth(centralBox.getWidth)
+                // chart.setHeight(centralBox.getHeight)
+            }
+        }
+
+        centralBox.widthProperty.addListener(sizeChangeListener)
+        centralBox.heightProperty.addListener(sizeChangeListener)
         */
         ps.show
 
         chart.draw(Seq.empty, HeightChart, Percentile, false)
-        // root.widthProperty().addListener(ne)
-        val dummy = Seq(PatientRecord("123", "M", LocalDate.of(1970,3,5), LocalDate.of(2020, 8, 11), Some(182), Some(83)))
+
+        ps.setMinWidth(scene.getWidth)
+        ps.setMinHeight(scene.getHeight)
+        ps.setResizable(false)
         // convertCSV()
     }
 

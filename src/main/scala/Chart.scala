@@ -5,6 +5,8 @@ import javafx.scene.paint.Color
 import javafx.scene.shape.Circle
 import javafx.scene.layout.StackPane
 import javafx.scene.Group
+import javafx.animation.{FillTransition, ScaleTransition, ParallelTransition}
+import javafx.util.Duration
 
 sealed trait ChartType 
 case object HeightChart extends ChartType
@@ -38,12 +40,11 @@ object Chart {
     type MapF = Double => Double
     type ChartMap = Tuple2[MapF, MapF]
     // type ChartInfo = Option[ChartMap] => Option[ChartMap]
-    val circleRadius = 7
+    val pointDiameter = 10
 
     def apply(width: Double, height: Double, font: Option[Font]): (Group, Chart) = {
-        // val pane = new StackPane()
         val group = new Group()
-        val point = new Circle(circleRadius)
+        val point = new Circle(pointDiameter / 2)
         point.setFill(Color.GREEN)
         val chart = new Chart(width, height, point, font)
         group.getChildren.addAll(chart, point)
@@ -64,7 +65,16 @@ case class Chart(width: Double, height: Double, point: Circle, font: Option[Font
     private val legendColor = Color.BLACK
     private val maleRefColor = Color.BLUE
     private val femaleRefColor = Color.RED
-    private val pointColor = Color.RED
+    private val pointColor = Color.rgb(0xff, 0x59, 0)
+
+    private val transDuration = Duration.millis(500)
+    private val fillTrans = new FillTransition(transDuration, Color.RED, pointColor)
+    private val scaleTrans = new ScaleTransition(transDuration)
+    scaleTrans.setFromX(2.0)
+    scaleTrans.setFromY(2.0)
+    scaleTrans.setToX(1.0)
+    scaleTrans.setToY(1.0)
+    private val combinedTrans = new ParallelTransition(fillTrans, scaleTrans)
 
     // 차트 Y축 범위 
     private val measureRange: Map[Tuple2[ChartType, Boolean], Tuple2[Int, Int]] = 
@@ -97,7 +107,7 @@ case class Chart(width: Double, height: Double, point: Circle, font: Option[Font
         else fontSize
     }
 
-    def drawBase(ctype: ChartType, male: Boolean): ChartMap = {
+    private def drawBase(ctype: ChartType, male: Boolean): ChartMap = {
         // val gc = getGraphicsContext2D()
         gc.setStroke(lineColor)
         gc.setFill(legendColor)
@@ -155,7 +165,7 @@ case class Chart(width: Double, height: Double, point: Circle, font: Option[Font
         (monthMap, valueMap)
     }
 
-    def drawRef(ctype: ChartType, male: Boolean, rtype: RefType) = {
+    private def drawRef(ctype: ChartType, male: Boolean, rtype: RefType) = {
         // val gc = getGraphicsContext2D()
         val colors = Seq(maleRefColor, femaleRefColor)
         val sexIndex = if (male) 0 else 1
@@ -201,9 +211,8 @@ case class Chart(width: Double, height: Double, point: Circle, font: Option[Font
         })
     }
 
-    def drawMeasures(ctype: ChartType) = {
+    private def drawMeasures(ctype: ChartType) = {
         gc.setFill(pointColor)
-        val pointDiameter = 10
         records.foreach({ r => 
             val mOption = ctype match {
                 case HeightChart => r.height
@@ -231,6 +240,7 @@ case class Chart(width: Double, height: Double, point: Circle, font: Option[Font
         chartMap = drawBase(ctype, isMale)
         drawRef(ctype, isMale, rtype)
         drawMeasures(ctype)
+        setPointInvisible()
     }
 
     def emphasizeMeasure(i: Int, ctype: ChartType, rType: RefType) = {
@@ -246,13 +256,16 @@ case class Chart(width: Double, height: Double, point: Circle, font: Option[Font
                 // println(s"EMf : ${records.length}($i) => $r, $ctype, $rType, $vOption: $am, $v (${chartMap._1(am)}, ${chartMap._2(v)}")
                 point.setCenterX(chartMap._1(am))
                 point.setCenterY(chartMap._2(v))
+                combinedTrans.setNode(point)
+                combinedTrans.play
+                point.setOpacity(1.0)
             }
         }
     }
 
-    def setPointInvisible() = point.setOpacity(0)
+    private def setPointInvisible() = point.setOpacity(0)
 
-    def clearCanvas() = {
+    private def clearCanvas() = {
         gc.setFill(bgColor)
         gc.fillRect(0, 0, width, height)
     }

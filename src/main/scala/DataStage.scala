@@ -182,7 +182,7 @@ object DataStage {
         val listRow = new RowConstraints()
         listRow.setMaxHeight(Double.MaxValue)
         listRow.setVgrow(Priority.ALWAYS)
-        p.getRowConstraints.addAll((Range(0,7).map(_ => new RowConstraints()) :+ listRow):_*)
+        p.getRowConstraints.addAll((Range(0,8).map(_ => new RowConstraints()) :+ listRow):_*)
         p.setPadding(new Insets(10))
         p
     }
