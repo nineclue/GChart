@@ -352,7 +352,7 @@ object DataStage {
             new ListChangeListener[Integer] {
                 def onChanged(c: ListChangeListener.Change[_ <: Integer]) = {
                     while (c.next) {
-                        println(s"ListChangeListener: $c")
+                        // println(s"ListChangeListener: $c")
                         if (c.wasAdded()) 
                             updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()), false)
                     }

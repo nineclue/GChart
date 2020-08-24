@@ -256,9 +256,9 @@ case class Chart(width: Double, height: Double, point: Circle, font: Option[Font
                 // println(s"EMf : ${records.length}($i) => $r, $ctype, $rType, $vOption: $am, $v (${chartMap._1(am)}, ${chartMap._2(v)}")
                 point.setCenterX(chartMap._1(am))
                 point.setCenterY(chartMap._2(v))
+                point.setOpacity(1.0)
                 combinedTrans.setNode(point)
                 combinedTrans.play
-                point.setOpacity(1.0)
             }
         }
     }
