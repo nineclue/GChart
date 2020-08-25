@@ -203,28 +203,13 @@ object DataStage {
         // 환자 기본 정보 수정 가능 여부
         def notModifiable() = {
             records.size == 0
-            /*
-            val cnoOk = content(pi.chartInput).nonEmpty
-            val iday = pi.idayInput.getValue
-            val bday = pi.bdayInput.getValue
-            !(cnoOk && (iday.compareTo(bday) > 0))
-            */
         }
 
         // 저장 그래프 버트 활성화
         val inputHandler = mkEventHandler[KeyEvent](e => pi.commitButton.setDisable(!savable()))
         pi.chartInput.setOnKeyTyped(inputHandler)
         pi.heightInput.setOnKeyTyped(inputHandler)
-        pi.weightInput.setOnKeyTyped(inputHandler)
-        pi.weightInput.setOnKeyPressed(mkEventHandler[KeyEvent]({ e => 
-            println(s"keyevent ${e.getCode} ${savable()}")
-            val k = e.getCode()
-            if (k == KeyCode.ENTER && savable()) {
-                println("focus to commit!")
-                pi.commitButton.requestFocus()
-            }
-        }))
-        
+        pi.weightInput.setOnKeyTyped(inputHandler)        
 
         // 신장, 체중에 숫자만 입력 & bmi update
         val bmiListener = new ChangeListener[String] {
@@ -261,8 +246,14 @@ object DataStage {
         pi.chartLabel.setOnContextMenuRequested(mkMenuHandler(modifyMenu))
 
         pi.chartInput.setOnAction(mkEventHandler[ActionEvent](e => loadPatient(pi)))
-
         pi.commitButton.setOnAction(mkEventHandler[ActionEvent](e => saveAndGraph(pi)))
+
+        /*
+        makeNext(pi.bdayInput.getEditor, pi.idayInput.getEditor)
+        makeNext(pi.idayInput.getEditor, pi.heightInput)
+        makeNext(pi.heightInput, pi.weightInput)
+        makeNext(pi.weightInput, pi.commitButton)
+        */
     }
 
     // 생일, 측정일 focus시 기존 입력이 모두 선택되도록 
@@ -274,6 +265,14 @@ object DataStage {
                 })
             }
         }
+    }
+
+    private def makeNext(ctrl: TextField, next: Node) = {
+        ctrl.setOnKeyPressed(mkEventHandler[KeyEvent]({ e => 
+            if (e.getCode() == KeyCode.ENTER) {
+                next.requestFocus()
+            }
+        }))
     }
 
     private def modifyPatient(pi: PatientInput)(e: ActionEvent) = {
@@ -315,6 +314,8 @@ object DataStage {
         records.setAll(rs:_*)
         setPatientRelatedFields(pi, rs)
         pi.drawFunction(rs)
+        if (rs.size == 0) pi.bdayInput.requestFocus
+        else pi.idayInput.requestFocus
     }
 
     private def setPatientRelatedFields(pi: PatientInput, records: Seq[PatientRecord]) = {
