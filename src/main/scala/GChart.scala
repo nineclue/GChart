@@ -19,9 +19,11 @@ import javafx.event.ActionEvent
 import javafx.scene.paint.Color
 
 object GChart {
+    val fsmall = Font.loadFont(getClass.getResourceAsStream("IropkeBatangM.ttf"), 12)
     def main(as: Array[String]) = {
         // dbtest
         DB.init
+        println(fsmall.getFamily)
         Application.launch(classOf[GChart_], as:_*)
     }
 
@@ -40,10 +42,11 @@ object GChart {
 }
 
 class GChart_ extends Application {
+    import GChart.fsmall
+
     val stageWidth = 600
     val stageHeight = 600
-    val flarge = Font.loadFont(getClass.getResourceAsStream("BMEULJIROTTF.ttf"), 20)
-    val fsmall = Font.loadFont(getClass.getResourceAsStream("NanumMyeongjo.ttf"), 12)
+    // val flarge = Font.loadFont(getClass.getResourceAsStream("IropkeBatangM.ttf"), 20)
     val (cgroup, chart) = Chart(stageWidth, stageHeight, Some(fsmall))
     val hButton = new RadioButton("신장")
     val wButton = new RadioButton("체중")
@@ -60,6 +63,8 @@ class GChart_ extends Application {
 
     override def start(ps: Stage) = {
         val root = new BorderPane()
+        root.setStyle(s"font-family: '${fsmall.getFamily}'")
+        // root.setStyle("@font-face { font-family: 'Iropke'; src: url('IropkeBatangM.ttf') }; -fx-family: 'Iropke'")
         val (bp, cs) = DataStage.inputPane(drawChart, point)
         root.setLeft(bp)
 
