@@ -36,6 +36,7 @@ import javafx.scene.control.SelectionMode
 import javafx.scene.control.Alert
 import javafx.scene.control.Alert.AlertType
 import javafx.scene.control.ButtonType
+import javafx.scene.input.KeyCode
 
 case class PatientRecord(chartno: String, sex: String, bday: LocalDate, iday: LocalDate, height: Option[Double], weight: Option[Double]) {
     val bmi: Option[Double] = height.flatMap(h => weight.map({ w =>
@@ -64,7 +65,7 @@ object CalendarConverter extends StringConverter[LocalDate] {
                 val y = ys.toInt
                 val year = 
                     if (y < 100) {
-                        if (y >= (LocalDate.now.getYear % 100)) y + 1900
+                        if (y > (LocalDate.now.getYear % 100)) y + 1900
                         else y + 2000
                     } else y
                 LocalDate.of(year, m.toInt, d.toInt)
@@ -193,13 +194,14 @@ object DataStage {
         // 현재 저장가능한지
         def savable() = {
             val cnoOk = content(pi.chartInput).nonEmpty
+            val iday = pi.idayInput.getValue
+            val bday = pi.bdayInput.getValue
             val heightOk = content(pi.heightInput).toDoubleOption.nonEmpty
             val weightOk = content(pi.weightInput).toDoubleOption.nonEmpty
-            cnoOk && (heightOk || weightOk)
+            cnoOk && (heightOk || weightOk) && ((iday.compareTo(bday) > 0))
         }
         // 환자 기본 정보 수정 가능 여부
         def notModifiable() = {
-
             records.size == 0
             /*
             val cnoOk = content(pi.chartInput).nonEmpty
@@ -214,6 +216,15 @@ object DataStage {
         pi.chartInput.setOnKeyTyped(inputHandler)
         pi.heightInput.setOnKeyTyped(inputHandler)
         pi.weightInput.setOnKeyTyped(inputHandler)
+        pi.weightInput.setOnKeyPressed(mkEventHandler[KeyEvent]({ e => 
+            println(s"keyevent ${e.getCode} ${savable()}")
+            val k = e.getCode()
+            if (k == KeyCode.ENTER && savable()) {
+                println("focus to commit!")
+                pi.commitButton.requestFocus()
+            }
+        }))
+        
 
         // 신장, 체중에 숫자만 입력 & bmi update
         val bmiListener = new ChangeListener[String] {
@@ -280,8 +291,8 @@ object DataStage {
 
     private def saveAndGraph(pi: PatientInput) = {
         val r = harvest(pi)
-        DB.put(r)
-        
+        println(s"saving $r")
+        DB.put(r)   
         loadPatient(pi)
     }
 
@@ -300,6 +311,7 @@ object DataStage {
         // setPatientRelatedFields( -> updateControls)에서 fields update 함
         loadedRecord = None
         
+        pi.records.getSelectionModel().clearSelection()
         records.setAll(rs:_*)
         setPatientRelatedFields(pi, rs)
         pi.drawFunction(rs)
@@ -372,7 +384,7 @@ object DataStage {
             new ListChangeListener[Integer] {
                 def onChanged(c: ListChangeListener.Change[_ <: Integer]) = {
                     while (c.next) {
-                        // println(s"ListChangeListener: $c")
+                        // println(s"ListChangeListener: $c")                        
                         if (c.wasAdded()) 
                             updateControls(pi, records.get(t.getSelectionModel().getSelectedIndex()), false)
                     }

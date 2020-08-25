@@ -61,6 +61,7 @@ object DB {
         DO UPDATE SET height = ${r.height}, weight = ${r.weight}
         WHERE chartno = ${r.chartno} AND measuredate = ${r.iday}
         """.update.run
+        println(mupsert.toString)
         (pinsert, mupsert).mapN(_ + _).transact(xa).unsafeRunSync
     }
 

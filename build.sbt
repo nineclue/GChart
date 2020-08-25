@@ -1,6 +1,5 @@
 scalaVersion := "2.13.3"
 
-/*
 version in ThisBuild := "0.0.1"
 enablePlugins(WindowsPlugin)
 
@@ -11,10 +10,9 @@ packageDescription := "Testing package to check GChart"
 wixProductId := "941699a7-d7b8-406b-8d0e-ac0c958522f5"
 wixProductUpgradeId := "71fe9ea5-9eca-41f0-af6c-736c811b9233"
 
-// enablePlugins(JavaAppPackaging)
-enablePlugins(JlinkPlugin)
-jlinkIgnoreMissingDependency := JlinkIgnore.everything
-*/
+enablePlugins(JavaAppPackaging)
+// enablePlugins(JlinkPlugin)
+// jlinkIgnoreMissingDependency := JlinkIgnore.everything
 
 fork := true
 

@@ -21,6 +21,7 @@ import javafx.scene.paint.Color
 object GChart {
     def main(as: Array[String]) = {
         // dbtest
+        DB.init
         Application.launch(classOf[GChart_], as:_*)
     }
 
