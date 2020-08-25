@@ -199,10 +199,14 @@ object DataStage {
         }
         // 환자 기본 정보 수정 가능 여부
         def notModifiable() = {
+
+            records.size == 0
+            /*
             val cnoOk = content(pi.chartInput).nonEmpty
             val iday = pi.idayInput.getValue
             val bday = pi.bdayInput.getValue
             !(cnoOk && (iday.compareTo(bday) > 0))
+            */
         }
 
         // 저장 그래프 버트 활성화
@@ -239,24 +243,39 @@ object DataStage {
         pi.idayInput.setConverter(CalendarConverter)
 
         // 생일, 측정일 focus시 기존 입력이 모두 선택되도록 
-        def focused(p: DatePicker) = new ChangeListener[java.lang.Boolean] {
-            def changed(obv: ObservableValue[_ <: java.lang.Boolean], ov: java.lang.Boolean, nv: java.lang.Boolean) = {
-                if (nv) { 
-                    Platform.runLater(new Runnable {
-                        def run() = p.getEditor.selectAll
-                    })
-                }
-            }
-        }
-        pi.bdayInput.focusedProperty().addListener(focused(pi.bdayInput))
-        pi.idayInput.focusedProperty().addListener(focused(pi.idayInput))
+        pi.bdayInput.focusedProperty().addListener(focusedListener(pi.bdayInput))
+        pi.idayInput.focusedProperty().addListener(focusedListener(pi.idayInput))
 
-        val modifyMenu = Seq(Menu("수정", notModifiable, (_) => println("수정!!!")))
+        val modifyMenu = Seq(Menu("수정", notModifiable, modifyPatient(pi)_))
         pi.chartLabel.setOnContextMenuRequested(mkMenuHandler(modifyMenu))
 
         pi.chartInput.setOnAction(mkEventHandler[ActionEvent](e => loadPatient(pi)))
 
         pi.commitButton.setOnAction(mkEventHandler[ActionEvent](e => saveAndGraph(pi)))
+    }
+
+    // 생일, 측정일 focus시 기존 입력이 모두 선택되도록 
+    def focusedListener(p: DatePicker) = new ChangeListener[java.lang.Boolean] {
+        def changed(obv: ObservableValue[_ <: java.lang.Boolean], ov: java.lang.Boolean, nv: java.lang.Boolean) = {
+            if (nv) { 
+                Platform.runLater(new Runnable {
+                    def run() = p.getEditor.selectAll
+                })
+            }
+        }
+    }
+
+    private def modifyPatient(pi: PatientInput)(e: ActionEvent) = {
+        // 환자 기본 정보만 필요하므로 selection index 구할 필요 없다
+        val d = ModifyDialog(records.get(0))
+        val onr = d.showAndWait()
+        if (onr.isPresent) {
+            onr.get.foreach({ nr =>
+            DB.changePerson(records.get(0), nr)
+            pi.chartInput.setText(nr.chartno)
+            loadPatient(pi)
+            })
+        }
     }
 
     private def saveAndGraph(pi: PatientInput) = {
@@ -302,6 +321,7 @@ object DataStage {
     }
 
     private def updateControls(pi: PatientInput, r: PatientRecord, basicOnly: Boolean) = {
+        pi.chartInput.setText(r.chartno)
         if (r.sex == "M") pi.maleButton.setSelected(true) 
         else pi.femaleButton.setSelected(true)
 

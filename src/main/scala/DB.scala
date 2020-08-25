@@ -71,10 +71,12 @@ object DB {
     }
 
     def changePerson(o: PatientRecord, n: PatientRecord) = {
-        sql"""
-        UPDATE person SET chartno = ${o.chartno}, sex = ${o.sex}, birthday = ${o.bday}
-        WHERE chartno = ${n.chartno}, sex = ${n.sex}, birthday = ${n.bday}
-        """.update.run.transact(xa).unsafeRunSync()
+        val u1 = sql"""
+        UPDATE person SET chartno = ${n.chartno}, sex = ${n.sex}, birthday = ${n.bday}
+        WHERE chartno = ${o.chartno} AND sex = ${o.sex} AND birthday = ${o.bday}
+        """.update.run
+        val u2 = sql"""UPDATE measures SET chartno = ${n.chartno} WHERE chartno = ${o.chartno}""".update.run
+        (u1, u2).mapN(_ + _).transact(xa).unsafeRunSync()
     }
 
     /*
