@@ -1,5 +1,6 @@
 scalaVersion := "2.13.3"
 
+/*
 version in ThisBuild := "0.0.1"
 enablePlugins(WindowsPlugin)
 
@@ -13,6 +14,7 @@ wixProductUpgradeId := "71fe9ea5-9eca-41f0-af6c-736c811b9233"
 enablePlugins(JavaAppPackaging)
 // enablePlugins(JlinkPlugin)
 // jlinkIgnoreMissingDependency := JlinkIgnore.everything
+*/
 
 fork := true
 
@@ -23,6 +25,11 @@ val folderName =
 // val libPath = Seq("/usr/lib/jni").mkString(java.io.File.pathSeparator)
 
 // javaOptions in run += s"-Djava.library.path=$libPath"
+
+assemblyMergeStrategy in assembly := {   
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard   
+  case x => MergeStrategy.first 
+}
 
 libraryDependencies ++= Seq(
     "org.openjfx" % "javafx-base" % "11",
